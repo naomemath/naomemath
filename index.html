@@ -1,7 +1,13 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" id="root">
 <head>
 <meta charset="UTF-8">
+<script>
+  (function(){
+    var t=localStorage.getItem('nmm_theme');
+    if(t==='light')document.documentElement.setAttribute('data-theme','light');
+  })();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>naomemath · finanças</title>
 <!-- Chart.js removido: usando Canvas API nativa -->
@@ -614,6 +620,139 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .meta-val{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .meta-badge-done{background:rgba(26,158,110,.12);color:var(--green);border-radius:var(--r-full);font-size:10px;padding:2px 8px;font-weight:600}
 .meta-aportar{display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--b1)}
+
+/* ── LIGHT MODE ── */
+[data-theme="light"]{
+  --bg:#f5f5f7;
+  --s1:#ffffff;
+  --s2:#f0f0f5;
+  --s3:#e8e8f0;
+  --s4:#e0e0eb;
+
+  --b1:rgba(0,0,0,0.08);
+  --b2:rgba(0,0,0,0.13);
+  --b3:rgba(0,0,0,0.20);
+
+  --gold:#B07D10;
+  --gold-dim:rgba(176,125,16,0.10);
+  --gold-soft:rgba(176,125,16,0.05);
+  --gold2:rgba(176,125,16,0.15);
+
+  --green:#0A7A52;
+  --green-dim:rgba(10,122,82,0.10);
+  --green-soft:rgba(10,122,82,0.05);
+  --green2:rgba(10,122,82,0.15);
+
+  --red:#B02020;
+  --red-dim:rgba(176,32,32,0.09);
+  --red-soft:rgba(176,32,32,0.04);
+  --red2:rgba(176,32,32,0.12);
+
+  --blue:#1D4ED8;
+  --blue-dim:rgba(29,78,216,0.09);
+  --blue2:rgba(29,78,216,0.12);
+
+  --purple:#5B21B6;
+  --purple-dim:rgba(91,33,182,0.09);
+  --purple2:rgba(91,33,182,0.12);
+
+  --teal:#0369A1;
+  --teal-dim:rgba(3,105,161,0.09);
+  --teal2:rgba(3,105,161,0.12);
+
+  --orange:#C2410C;
+  --text:#111118;
+  --sub:#6b6b7a;
+  --dim:#c0c0cc;
+  --muted:#e0e0eb;
+
+  --sh-xs:0 1px 2px rgba(0,0,0,.06);
+  --sh-sm:0 1px 4px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh:0 2px 8px rgba(0,0,0,.10),0 1px 2px rgba(0,0,0,.06);
+  --sh-md:0 4px 16px rgba(0,0,0,.10),0 1px 4px rgba(0,0,0,.06);
+  --sh-lg:0 8px 32px rgba(0,0,0,.12);
+  --sh-glow:none;
+
+  --glass:rgba(255,255,255,0.90);
+  --glass-border:rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .top{
+  background:rgba(255,255,255,0.92);
+  border-bottom-color:rgba(0,0,0,0.08);
+}
+[data-theme="light"] .tabs{
+  background:var(--s1);
+  border-bottom-color:rgba(0,0,0,0.08);
+}
+[data-theme="light"] .cblock,
+[data-theme="light"] .card,
+[data-theme="light"] .af,
+[data-theme="light"] .meta-card{
+  box-shadow:var(--sh-sm);
+}
+[data-theme="light"] .cbh{
+  background:var(--s2);
+}
+[data-theme="light"] .crow:hover{
+  background:var(--s2);
+}
+[data-theme="light"] .xrow{
+  background:rgba(3,105,161,0.04);
+  border-left-color:rgba(3,105,161,0.25);
+}
+[data-theme="light"] .edit-panel{
+  background:var(--s2);
+}
+[data-theme="light"] #toast{
+  background:rgba(255,255,255,0.95);
+  color:var(--text);
+  border-color:var(--b2);
+}
+[data-theme="light"] .al-r{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+[data-theme="light"] .al-y{background:#fffbeb;border-color:#fde68a;color:#78350f}
+[data-theme="light"] .al-g{background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+[data-theme="light"] .al-b{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+
+[data-theme="light"] #login{
+  background:radial-gradient(ellipse 60% 30% at 50% -20%,rgba(176,125,16,.06),transparent 55%),var(--bg);
+}
+[data-theme="light"] .lbox{
+  background:var(--s1);
+  border-color:var(--b2);
+}
+[data-theme="light"] .inp{
+  background:var(--s2);
+  border-color:var(--b1);
+  color:var(--text);
+}
+[data-theme="light"] .acc-sw{background:var(--s2);}
+[data-theme="light"] .msel{background:var(--s2);color:var(--text);}
+[data-theme="light"] .ab.on{background:var(--gold);color:#fff;}
+[data-theme="light"] .fs,.fi{background:var(--s2);color:var(--text);border-color:var(--b1);}
+[data-theme="light"] .fsel,.fs{background:var(--s2);color:var(--text);}
+[data-theme="light"] .edit-inp,.edit-sel{background:var(--s1);color:var(--text);}
+[data-theme="light"] .mr{background:var(--s1);}
+
+/* ── CALENDÁRIO ── */
+.cal-grid-dow{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.cal-dow{text-align:center;font-size:10px;font-weight:600;color:var(--sub);padding:4px 0;letter-spacing:.3px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-cell{min-height:50px;border-radius:var(--r-xs);padding:5px 4px;cursor:pointer;transition:background var(--dur-fast) var(--ease);display:flex;flex-direction:column;align-items:center;gap:3px}
+.cal-cell:hover{background:var(--s2)}
+.cal-cell.cal-empty{cursor:default}
+.cal-cell.cal-empty:hover{background:transparent}
+.cal-num{font-size:11px;font-weight:500;color:var(--sub);width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0}
+.cal-cell.cal-hoje .cal-num{background:var(--gold);color:#fff;font-weight:700}
+.cal-cell.cal-vence{background:rgba(201,64,64,.04)}
+.cal-cell.cal-vence:hover{background:rgba(201,64,64,.08)}
+.cal-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;max-width:32px}
+.cal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+@media(max-width:440px){
+  .cal-cell{min-height:40px;padding:3px 2px}
+  .cal-num{font-size:10px;width:20px;height:20px}
+  .cal-dot{width:4px;height:4px}
+}
 </style>
 </head>
 <body>
@@ -643,6 +782,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <select class="msel" id="msel" onchange="changeMonth(this.value)"></select>
     <button class="tbtn" style="background:var(--gold);color:#000;font-weight:700" onclick="addMonth()">+ mês</button>
     <div id="spill" class="pill" style="display:none"></div>
+    <button class="tbtn theme-btn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema" style="background:transparent;border:1px solid var(--b1);color:var(--sub);padding:5px 9px;font-size:14px;line-height:1">☀</button>
     <button class="tbtn" style="background:transparent;color:var(--sub);border:1px solid var(--b1)" onclick="logout()">Sair</button>
   </div>
   <div class="tabs" id="tabs">
@@ -654,6 +794,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <button class="tab" data-t="metas" onclick="goTab('metas',this)">Metas</button>
     <button class="tab" data-t="transf" onclick="goTab('transf',this)">PJ → PF</button>
     <button class="tab" data-t="saude" onclick="goTab('saude',this)">Saúde</button>
+    <button class="tab" data-t="cal" onclick="goTab('cal',this)">Calendário</button>
     <button class="tab" data-t="hist" onclick="goTab('hist',this)">Histórico</button>
     <button class="tab" data-t="cfg" onclick="goTab('cfg',this)">Config</button>
   </div>
@@ -989,6 +1130,19 @@ const NC={
 
 /* ── AUTH ── */
 const getPass=()=>localStorage.getItem('nmm_pass')||'1234';
+
+/* ── TEMA DARK/LIGHT ── */
+function getTheme(){return localStorage.getItem('nmm_theme')||'dark';}
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t==='light'?'light':'');
+  const btn=document.getElementById('theme-btn');
+  if(btn)btn.textContent=t==='light'?'☽':'☀';
+}
+function toggleTheme(){
+  const next=getTheme()==='dark'?'light':'dark';
+  localStorage.setItem('nmm_theme',next);
+  applyTheme(next);
+}
 function login(){
   if(document.getElementById('pwd').value!==getPass()){
     document.getElementById('lerr').style.display='block';
@@ -996,6 +1150,7 @@ function login(){
   }
   document.getElementById('login').style.display='none';
   const a=document.getElementById('app');a.style.display='flex';a.style.flexDirection='column';
+  applyTheme(getTheme());
   init();
 }
 function logout(){
@@ -1027,6 +1182,7 @@ const dC=()=>{Object.values(CHS).forEach(c=>{try{c.destroy()}catch{}});CHS={};};
 
 /* ── INIT ── */
 function init(){
+  applyTheme(getTheme());
   if(!load()['2026-06'])saveMD('2026-06',blank());
   curM='2026-06';bSel();
   document.getElementById('msel').value=curM;
@@ -1109,7 +1265,7 @@ function updatePill(){
 
 function render(){
   dC();updatePill();
-  const fns={dash:pgDash,entradas:pgEntradas,contas:pgContas,cartoes:pgCartoes,invest:pgInvest,metas:pgMetas,transf:pgTransf,saude:pgSaude,hist:pgHist,cfg:pgCfg};
+  const fns={dash:pgDash,entradas:pgEntradas,contas:pgContas,cartoes:pgCartoes,invest:pgInvest,metas:pgMetas,transf:pgTransf,cal:pgCalendario,saude:pgSaude,hist:pgHist,cfg:pgCfg};
   document.getElementById('pg').innerHTML=(fns[curTab]||pgDash)();
   document.querySelector('.scroll').scrollTop=0;
   requestAnimationFrame(()=>{
@@ -1770,6 +1926,141 @@ function delMeta(id){
   const m=getMD(curM);
   m.metas=(m.metas||[]).filter(x=>x.id!==id);
   saveMD(curM,m);toast('Meta removida','var(--sub)');render();
+}
+
+
+/* ══════════════════════════════════════
+   CALENDÁRIO FINANCEIRO
+══════════════════════════════════════ */
+function pgCalendario(){
+  const m=getMD(curM);
+  const [ano,mes]=curM.split('-').map(Number);
+  const diasNoMes=new Date(ano,mes,0).getDate();
+  const primeiroDia=new Date(ano,mes-1,1).getDay(); // 0=dom
+
+  /* Coletar todos os itens com data no mês */
+  const eventos=[];
+  const addEv=(nome,valor,tipo,pago,dia)=>{
+    const d=parseInt(dia);
+    if(!isNaN(d)&&d>=1&&d<=31)eventos.push({nome,valor,tipo,pago,dia:d});
+  };
+  m.pf.bills.forEach(b=>addEv(b.n,b.v,'conta',b.ok,b.date));
+  m.pj.bills.forEach(b=>addEv(b.n,b.v,'conta_pj',b.ok,b.date));
+  m.cards.forEach(c=>addEv(c.n,c.v,'cartao',c.ok,c.vence));
+  m.pf.inc.forEach(i=>addEv(i.n,i.v,'entrada',i.ok,i.date));
+  m.pj.inc.forEach(i=>addEv(i.n,i.v,'entrada_pj',i.ok,i.date));
+  m.xfer.forEach(x=>addEv(x.n,x.v,'transf',x.ok,x.date));
+
+  /* Cores por tipo */
+  const tipoStyle={
+    conta:     {bg:'var(--red-dim)',   cor:'var(--red)',   label:'Conta PF'},
+    conta_pj:  {bg:'var(--orange)',    cor:'var(--orange)',label:'Conta PJ'},
+    cartao:    {bg:'var(--purple-dim)',cor:'var(--purple)',label:'Cartão'},
+    entrada:   {bg:'var(--green-dim)', cor:'var(--green)', label:'Entrada PF'},
+    entrada_pj:{bg:'var(--blue-dim)',  cor:'var(--blue)',  label:'Entrada PJ'},
+    transf:    {bg:'var(--teal-dim)',  cor:'var(--teal)',  label:'PJ→PF'},
+  };
+
+  /* Agrupar por dia */
+  const porDia={};
+  eventos.forEach(ev=>{
+    if(!porDia[ev.dia])porDia[ev.dia]=[];
+    porDia[ev.dia].push(ev);
+  });
+
+  /* Totais do mês */
+  const totalVencer=eventos.filter(e=>!e.pago&&['conta','conta_pj','cartao'].includes(e.tipo)).reduce((s,e)=>s+e.valor,0);
+  const totalReceber=eventos.filter(e=>!e.pago&&['entrada','entrada_pj'].includes(e.tipo)).reduce((s,e)=>s+e.valor,0);
+  const hoje=new Date().getDate();
+  const mesAtual=curM===new Date().toISOString().slice(0,7);
+
+  /* Próximos vencimentos */
+  const proximos=eventos
+    .filter(e=>!e.pago&&['conta','conta_pj','cartao'].includes(e.tipo))
+    .sort((a,b)=>a.dia-b.dia)
+    .slice(0,5);
+
+  /* Renderizar calendário */
+  const diasSemana=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const cabecalho=diasSemana.map(d=>'<div class="cal-dow">'+d+'</div>').join('');
+
+  let cells='';
+  /* Células vazias iniciais */
+  for(let i=0;i<primeiroDia;i++)cells+='<div class="cal-cell cal-empty"></div>';
+
+  for(let d=1;d<=diasNoMes;d++){
+    const evs=porDia[d]||[];
+    const isHoje=mesAtual&&d===hoje;
+    const temPendente=evs.some(e=>!e.pago&&['conta','conta_pj','cartao'].includes(e.tipo));
+    const temReceber=evs.some(e=>!e.pago&&['entrada','entrada_pj'].includes(e.tipo));
+    const tudo_pago=evs.length>0&&evs.every(e=>e.pago);
+
+    const dots=evs.slice(0,3).map(ev=>{
+      const st=tipoStyle[ev.tipo]||{cor:'var(--sub)'};
+      return '<div class="cal-dot" style="background:'+st.cor+';opacity:'+(ev.pago?0.3:0.9)+'"></div>';
+    }).join('');
+
+    const cls=['cal-cell',
+      isHoje?'cal-hoje':'',
+      temPendente?'cal-vence':'',
+      temReceber?'cal-recebe':'',
+      evs.length===0?'cal-vazio':'',
+    ].filter(Boolean).join(' ');
+
+    cells+='<div class="'+cls+'" onclick="showDia('+d+')">'
+      +'<div class="cal-num">'+d+'</div>'
+      +(dots?'<div class="cal-dots">'+dots+'</div>':'')
+      +'</div>';
+  }
+
+  /* Lista de eventos do mês */
+  const listaHtml=eventos.length?eventos.sort((a,b)=>a.dia-b.dia).map(ev=>{
+    const st=tipoStyle[ev.tipo]||{cor:'var(--sub)',label:'Outro'};
+    return '<div class="crow" style="opacity:'+(ev.pago?0.45:1)+'">'
+      +'<div style="width:3px;height:28px;border-radius:2px;background:'+st.cor+';flex-shrink:0"></div>'
+      +'<div style="width:22px;text-align:center;font-size:11px;font-weight:700;color:var(--sub);flex-shrink:0">'+ev.dia+'</div>'
+      +'<span class="rn">'+ev.nome+'</span>'
+      +'<span class="rb" style="background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span>'
+      +(ev.pago?'<span style="font-size:10px;color:var(--green)">✓</span>':'')
+      +'<span class="rv">'+fmt(ev.valor)+'</span>'
+      +'</div>';
+  }).join(''):'<div class="erow">Nenhum item com data lançada.</div>';
+
+  return '<div class="g3">'
+    +'<div class="card"><div class="sl">A Vencer</div><div class="sv" style="color:var(--red)">'+fmt(totalVencer)+'</div><div class="ss">contas pendentes</div></div>'
+    +'<div class="card"><div class="sl">A Receber</div><div class="sv" style="color:var(--green)">'+fmt(totalReceber)+'</div><div class="ss">entradas pendentes</div></div>'
+    +'<div class="card"><div class="sl">Eventos no Mês</div><div class="sv" style="color:var(--text)">'+eventos.length+'</div><div class="ss">com data registrada</div></div>'
+    +'</div>'
+    +'<div class="card">'
+      +'<div class="sh" style="margin-bottom:12px"><div class="st">'+new Date(ano,mes-1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"}).replace(/^\w/,c=>c.toUpperCase())+'</div>'
+      +'<div style="display:flex;gap:10px;font-size:10px;color:var(--sub);align-items:center">'
+        +'<span style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block"></span>Conta</span>'
+        +'<span style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>Entrada</span>'
+        +'<span style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--purple);display:inline-block"></span>Cartão</span>'
+      +'</div></div>'
+      +'<div class="cal-grid-dow">'+cabecalho+'</div>'
+      +'<div class="cal-grid">'+cells+'</div>'
+    +'</div>'
+    +(proximos.length?'<div class="card"><div class="st" style="margin-bottom:10px">Próximos Vencimentos</div>'
+      +proximos.map(ev=>{
+        const st=tipoStyle[ev.tipo]||{};
+        const diasRestantes=ev.dia-hoje;
+        const urgente=mesAtual&&diasRestantes>=0&&diasRestantes<=3;
+        return '<div class="crow">'
+          +'<div style="width:3px;height:28px;border-radius:2px;background:'+(urgente?'var(--red)':st.cor||'var(--sub)')+';flex-shrink:0"></div>'
+          +'<div style="width:22px;text-align:center;font-size:11px;font-weight:700;color:'+(urgente?'var(--red)':'var(--sub)')+';flex-shrink:0">'+ev.dia+'</div>'
+          +'<span class="rn">'+ev.nome+'</span>'
+          +(urgente&&mesAtual?'<span class="rb" style="background:var(--red-dim);color:var(--red)">Urgente</span>':'')
+          +'<span class="rv">'+fmt(ev.valor)+'</span>'
+          +'</div>';
+      }).join('')
+    +'</div>':'')
+    +'<div class="cblock"><div class="cbh"><div class="cbhtl">Todos os Eventos</div></div>'+listaHtml+'</div>';
+}
+
+function showDia(d){
+  /* Futuramente: modal com detalhes do dia */
+  toast('Dia '+d+' selecionado','var(--sub)');
 }
 
 function pgTransf(){
