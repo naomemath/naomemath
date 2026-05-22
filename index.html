@@ -601,6 +601,19 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
   .fa{min-height:36px}
   .chk{width:20px;height:20px}
 }
+
+/* ── METAS ── */
+.meta-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:15px;transition:border-color var(--dur) var(--ease)}
+.meta-card:hover{border-color:var(--b2)}
+.meta-card.meta-done{border-color:rgba(26,158,110,.2);background:rgba(26,158,110,.025)}
+.meta-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px}
+.meta-title{font-size:13px;font-weight:600;color:var(--text)}
+.meta-sub{font-size:10px;color:var(--sub);margin-top:2px}
+.meta-values{display:flex;justify-content:space-between;margin-bottom:4px}
+.meta-val-label{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.meta-val{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.meta-badge-done{background:rgba(26,158,110,.12);color:var(--green);border-radius:var(--r-full);font-size:10px;padding:2px 8px;font-weight:600}
+.meta-aportar{display:flex;gap:6px;padding-top:10px;border-top:1px solid var(--b1)}
 </style>
 </head>
 <body>
@@ -638,6 +651,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <button class="tab" data-t="contas" onclick="goTab('contas',this)">Contas</button>
     <button class="tab" data-t="cartoes" onclick="goTab('cartoes',this)">Cartões</button>
     <button class="tab" data-t="invest" onclick="goTab('invest',this)">Investimentos</button>
+    <button class="tab" data-t="metas" onclick="goTab('metas',this)">Metas</button>
     <button class="tab" data-t="transf" onclick="goTab('transf',this)">PJ → PF</button>
     <button class="tab" data-t="saude" onclick="goTab('saude',this)">Saúde</button>
     <button class="tab" data-t="hist" onclick="goTab('hist',this)">Histórico</button>
@@ -1000,7 +1014,7 @@ function getMD(k){
   const m=d[k];
   m.pf=m.pf||{};m.pf.inc=m.pf.inc||[];m.pf.bills=m.pf.bills||[];m.pf.inv=m.pf.inv||[];
   m.pj=m.pj||{};m.pj.inc=m.pj.inc||[];m.pj.bills=m.pj.bills||[];m.pj.inv=m.pj.inv||[];
-  m.xfer=m.xfer||[];m.cards=m.cards||[];
+  m.xfer=m.xfer||[];m.cards=m.cards||[];m.metas=m.metas||[];
   return m;
 }
 function saveMD(k,m){const d=load();d[k]=m;save(d);}
@@ -1095,11 +1109,12 @@ function updatePill(){
 
 function render(){
   dC();updatePill();
-  const fns={dash:pgDash,entradas:pgEntradas,contas:pgContas,cartoes:pgCartoes,invest:pgInvest,transf:pgTransf,saude:pgSaude,hist:pgHist,cfg:pgCfg};
+  const fns={dash:pgDash,entradas:pgEntradas,contas:pgContas,cartoes:pgCartoes,invest:pgInvest,metas:pgMetas,transf:pgTransf,saude:pgSaude,hist:pgHist,cfg:pgCfg};
   document.getElementById('pg').innerHTML=(fns[curTab]||pgDash)();
   document.querySelector('.scroll').scrollTop=0;
   requestAnimationFrame(()=>{
     if(curTab==='dash')drawDash();
+    if(curTab==='metas')drawMetas();
     if(curTab==='saude')drawSaude();
     if(curTab==='hist')drawHist();
     if(curTab==='invest')drawInvest();
@@ -1637,6 +1652,126 @@ function tgInv(id,src){const m=getMD(curM);const i=m[src].inv.find(i=>i.id===id)
 /* ══════════════════════════════════
    PJ → PF
 ══════════════════════════════════ */
+/* ══════════════════════════════════════
+   METAS FINANCEIRAS
+══════════════════════════════════════ */
+function pgMetas(){
+  const m=getMD(curM);
+  const metas=m.metas||[];
+  const totalMeta=metas.reduce((s,mt)=>s+mt.alvo,0);
+  const totalPoupado=metas.reduce((s,mt)=>s+(mt.poupado||0),0);
+  const concluidas=metas.filter(mt=>(mt.poupado||0)>=mt.alvo).length;
+  const catOpts=[
+    {v:'reserva',l:'Reserva de Emergência',i:'R'},
+    {v:'viagem',l:'Viagem',i:'V'},
+    {v:'imovel',l:'Imóvel',i:'I'},
+    {v:'veiculo',l:'Veículo',i:'A'},
+    {v:'investimento',l:'Investimento',i:'$'},
+    {v:'educacao',l:'Educação',i:'E'},
+    {v:'outro',l:'Outro',i:'G'},
+  ];
+  const catMap={};catOpts.forEach(c=>catMap[c.v]=c);
+  const catOps=catOpts.map(c=>'<option value="'+c.v+'">'+c.l+'</option>').join('');
+
+  const metaRows=metas.length?metas.map(mt=>{
+    const poupado=mt.poupado||0;
+    const pct=mt.alvo>0?Math.min(100,(poupado/mt.alvo*100)):0;
+    const falta=Math.max(0,mt.alvo-poupado);
+    const cat=catMap[mt.cat]||{l:'Outro'};
+    const concluida=poupado>=mt.alvo;
+    const keys=allKeys();
+    const avgSaldo=keys.length?keys.slice(0,3).reduce((s,k)=>{
+      const md=getMD(k);
+      const inc=md.pf.inc.reduce((a,i)=>a+i.v,0);
+      const out=md.pf.bills.reduce((a,b)=>a+b.v,0)+md.cards.reduce((a,c)=>a+c.v,0)+md.pf.inv.reduce((a,i)=>a+i.v,0);
+      return s+Math.max(0,inc-out);
+    },0)/Math.min(3,keys.length):0;
+    const mesesR=avgSaldo>0&&!concluida?Math.ceil(falta/avgSaldo):null;
+    const prazoStr=mt.prazo?(' · prazo '+mt.prazo):'';
+    const colBar=pct>=100?'var(--green)':pct>=50?'var(--gold)':'var(--blue)';
+    return '<div class="meta-card'+(concluida?' meta-done':'')+'">'+
+      '<div class="meta-header">'+
+        '<div>'+
+          '<div class="meta-title">'+mt.nome+'</div>'+
+          '<div class="meta-sub">'+cat.l+prazoStr+'</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:8px">'+
+          (concluida?'<span class="meta-badge-done">Concluída</span>':'')+
+          '<button class="rdl" onclick="delMeta(\''+mt.id+'\')">×</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="meta-values">'+
+        '<div><div class="meta-val-label">Poupado</div><div class="meta-val" style="color:var(--green)">'+fmt(poupado)+'</div></div>'+
+        '<div style="text-align:center"><div class="meta-val-label">Meta</div><div class="meta-val">'+fmt(mt.alvo)+'</div></div>'+
+        '<div style="text-align:right"><div class="meta-val-label">Falta</div><div class="meta-val" style="color:'+(falta>0?'var(--orange)':'var(--green)')+'">'+fmt(falta)+'</div></div>'+
+      '</div>'+
+      '<div style="background:rgba(255,255,255,.06);border-radius:4px;height:6px;overflow:hidden;margin:10px 0 6px">'+
+        '<div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+colBar+';border-radius:4px;transition:width .8s"></div>'+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+        '<div style="font-size:10px;color:var(--sub)">'+pct.toFixed(0)+'% concluído</div>'+
+        (mesesR?'<div style="font-size:10px;color:var(--sub)">~'+mesesR+' '+(mesesR===1?'mês':'meses')+'</div>':
+          concluida?'<div style="font-size:10px;color:var(--green)">Meta atingida</div>':
+          '<div style="font-size:10px;color:var(--dim)">sem projeção</div>')+
+      '</div>'+
+      '<div class="meta-aportar">'+
+        '<input class="fi" id="ap_'+mt.id+'" type="number" step="0.01" placeholder="Adicionar valor" style="flex:1;font-size:12px;padding:6px 9px">'+
+        '<button class="fa" style="background:var(--green);color:#fff;font-size:12px;padding:6px 12px" onclick="aportarMeta(\''+mt.id+'\')">Poupar</button>'+
+      '</div>'+
+    '</div>';
+  }).join(''):
+  '<div class="erow" style="padding:32px;text-align:center">'+
+    '<div style="font-size:13px;color:var(--sub)">Nenhuma meta criada ainda.</div>'+
+    '<div style="font-size:11px;color:var(--dim);margin-top:4px">Defina para onde quer chegar.</div>'+
+  '</div>';
+
+  return '<div class="g3">'+
+    '<div class="card"><div class="sl">Total das Metas</div><div class="sv" style="color:var(--purple)">'+fmt(totalMeta)+'</div><div class="ss">'+metas.length+' meta'+(metas.length!==1?'s':'')+' criada'+(metas.length!==1?'s':'')+'</div></div>'+
+    '<div class="card"><div class="sl">Total Poupado</div><div class="sv" style="color:var(--green)">'+fmt(totalPoupado)+'</div>'+
+      '<div class="track" style="margin-top:8px"><div class="fill" style="width:'+(totalMeta>0?(totalPoupado/totalMeta*100).toFixed(1):0)+'%;background:var(--green)"></div></div>'+
+    '</div>'+
+    '<div class="card"><div class="sl">Concluídas</div><div class="sv" style="color:var(--gold)">'+concluidas+'/'+metas.length+'</div><div class="ss">'+(metas.length-concluidas)+' em andamento</div></div>'+
+  '</div>'+
+  '<div class="af"><div class="aft">+ Nova Meta</div><div class="fr">'+
+    '<input class="fi" id="mt-nome" placeholder="Nome da meta" style="flex:2">'+
+    '<input class="fi" id="mt-alvo" type="number" step="0.01" placeholder="Valor alvo">'+
+    '<select class="fs" id="mt-cat">'+catOps+'</select>'+
+    '<input class="fi" id="mt-prazo" type="month" style="max-width:140px">'+
+    '<button class="fa" style="background:var(--purple);color:#fff" onclick="addMeta()">Criar</button>'+
+  '</div></div>'+
+  '<div style="display:flex;flex-direction:column;gap:10px">'+metaRows+'</div>';
+}
+
+function drawMetas(){}
+
+function addMeta(){
+  const nome=document.getElementById('mt-nome').value.trim();
+  const alvo=parseFloat(document.getElementById('mt-alvo').value);
+  const cat=document.getElementById('mt-cat').value;
+  const prazo=document.getElementById('mt-prazo').value;
+  if(!nome||isNaN(alvo)||alvo<=0){toast('Preencha nome e valor alvo','var(--red)');return;}
+  const m=getMD(curM);
+  if(!m.metas)m.metas=[];
+  m.metas.push({id:uid(),nome,alvo,cat,prazo,poupado:0,criada:curM});
+  saveMD(curM,m);toast('Meta criada');render();
+}
+
+function aportarMeta(id){
+  const inp=document.getElementById('ap_'+id);
+  const v=parseFloat(inp?inp.value:'');
+  if(isNaN(v)||v<=0){toast('Informe o valor','var(--red)');return;}
+  const m=getMD(curM);
+  const mt=(m.metas||[]).find(x=>x.id===id);
+  if(mt){mt.poupado=(mt.poupado||0)+v;saveMD(curM,m);toast('Valor adicionado');render();}
+}
+
+function delMeta(id){
+  if(!confirm('Remover esta meta?'))return;
+  const m=getMD(curM);
+  m.metas=(m.metas||[]).filter(x=>x.id!==id);
+  saveMD(curM,m);toast('Meta removida','var(--sub)');render();
+}
+
 function pgTransf(){
   const m=getMD(curM);
   const tot=m.xfer.reduce((s,x)=>s+x.v,0);
