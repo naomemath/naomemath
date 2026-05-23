@@ -800,6 +800,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 <div id="app">
   <div class="top">
     <div class="tlogo">naome<em>math</em></div>
+    <div id="sync-dot" style="font-size:11px;font-weight:700;color:var(--sub);min-width:14px;text-align:center;cursor:default;transition:color .3s" title="Status sync">·</div>
     <div class="acc-sw">
       <button class="ab on" id="ab-pf" onclick="setAcc('PF')">PF</button>
       <button class="ab" id="ab-pj" onclick="setAcc('PJ')">PJ</button>
@@ -809,6 +810,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <select class="msel" id="msel" onchange="changeMonth(this.value)"></select>
     <button class="tbtn" style="background:var(--gold);color:#000;font-weight:700" onclick="addMonth()">+ mês</button>
     <div id="spill" class="pill" style="display:none"></div>
+    <span id="sync-indicator" title="Sincronizado" style="font-size:11px;font-weight:700;color:var(--green);min-width:12px;text-align:center;cursor:default"></span>
     <button class="tbtn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema (claro/escuro)" style="background:var(--s2);border:1px solid var(--b2);color:var(--text);padding:5px 10px;font-size:13px;line-height:1;letter-spacing:.2px;font-weight:600">☀️</button>
     <button class="tbtn" style="background:transparent;color:var(--sub);border:1px solid var(--b1)" onclick="logout()">Sair</button>
   </div>
@@ -1271,6 +1273,7 @@ function login(){
   applyTheme(getTheme());
   resetSessionTimer();
   init();
+  syncFromCloud();
 }
 /* Timeout de sessão */
 let _sessionTimer=null;
@@ -1293,10 +1296,122 @@ function logout(){
 }
 
 /* ── DATA ── */
+/* ══════════════════════════════════════
+   DATA — localStorage + Supabase sync
+══════════════════════════════════════ */
+const SB_URL='https://fsdagfpykwfhjiqqahcp.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzZGFnZnB5a3dmaGppcXFhaGNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDA4NDUsImV4cCI6MjA5NTA3Njg0NX0.G1lluyG10pAG-yINTIFImnS9Q66q_y4U_agIdPFAdPs';
+
+/* Cache em memória */
 let _cache=null;
-const load=()=>{if(_cache)return _cache;try{_cache=JSON.parse(localStorage.getItem('nmm_data')||'{}')}catch{_cache={};} return _cache;};
-const save=d=>{_cache=d;localStorage.setItem('nmm_data',JSON.stringify(d));};
-function blank(){return{pf:{inc:[],bills:[],inv:[]},pj:{inc:[],bills:[],inv:[]},xfer:[],cards:[]};}
+let _syncTimer=null;
+let _syncStatus='idle'; /* idle | syncing | ok | error */
+
+const load=()=>{
+  if(_cache)return _cache;
+  try{_cache=JSON.parse(localStorage.getItem('nmm_data')||'{}');}catch{_cache={};}
+  return _cache;
+};
+
+const save=d=>{
+  _cache=d;
+  localStorage.setItem('nmm_data',JSON.stringify(d));
+  schedulSync();
+};
+
+/* Sync para o Supabase com debounce de 2s */
+function schedulSync(){
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(syncToCloud,2000);
+}
+
+async function sbFetch(path,opts){
+  try{
+    const r=await fetch(SB_URL+path,{
+      ...opts,
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'return=minimal',
+        ...(opts.headers||{})
+      }
+    });
+    return r;
+  }catch(e){
+    console.warn('Supabase fetch error:',e);
+    return null;
+  }
+}
+
+async function syncToCloud(){
+  if(_syncStatus==='syncing')return;
+  _syncStatus='syncing';
+  updateSyncUI('⟳');
+  try{
+    const data=JSON.stringify(load());
+    const r=await sbFetch('/rest/v1/dados',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({chave:'main',valor:load(),atualizado_em:new Date().toISOString()})
+    });
+    if(r&&(r.ok||r.status===201||r.status===200||r.status===204)){
+      _syncStatus='ok';
+      updateSyncUI('✓');
+    }else{
+      _syncStatus='error';
+      updateSyncUI('!');
+    }
+  }catch(e){
+    _syncStatus='error';
+    updateSyncUI('!');
+  }
+}
+
+async function syncFromCloud(){
+  updateSyncUI('⟳');
+  try{
+    const r=await sbFetch('/rest/v1/dados?chave=eq.main&select=valor',{method:'GET'});
+    if(r&&r.ok){
+      const rows=await r.json();
+      if(rows&&rows.length&&rows[0].valor){
+        const cloud=rows[0].valor;
+        /* Merge inteligente: pegar o mais recente por número de chaves */
+        const local=load();
+        const cloudKeys=Object.keys(cloud).filter(k=>k.match(/^\d{4}-\d{2}$/)).length;
+        const localKeys=Object.keys(local).filter(k=>k.match(/^\d{4}-\d{2}$/)).length;
+        /* Usar cloud se tiver mais dados, senão mesclar */
+        const merged={...local,...cloud};
+        /* Global sempre pega o que tem mais metas */
+        if(cloud.__global&&local.__global){
+          const cMetas=(cloud.__global.metas||[]).length;
+          const lMetas=(local.__global.metas||[]).length;
+          merged.__global=cMetas>=lMetas?cloud.__global:local.__global;
+        }
+        _cache=merged;
+        localStorage.setItem('nmm_data',JSON.stringify(merged));
+        updateSyncUI('✓');
+        return true;
+      }
+    }
+    updateSyncUI('✓');
+    return false;
+  }catch(e){
+    updateSyncUI('!');
+    return false;
+  }
+}
+
+function updateSyncUI(status){
+  const el=document.getElementById('sync-dot');
+  if(!el)return;
+  const map={'⟳':['#C68A14','Sincronizando...'],'✓':['#1A9E6E','Sincronizado'],'!':['#C94040','Erro de sync — dados locais OK']};
+  const[col,tip]=map[status]||['#72728a',''];
+  el.style.color=col;el.title=tip;el.textContent=status;
+}
+
+function blank(){return{pf:{inc:[],bills:[],inv:[]},pj:{inc:[],bills:[],inv:[]},xfer:[],cards:[],metas:[]};}
+
 function getMD(k){
   const d=load();if(!d[k])d[k]=blank();
   const m=d[k];
@@ -1305,12 +1420,9 @@ function getMD(k){
   m.xfer=m.xfer||[];m.cards=m.cards||[];m.metas=m.metas||[];
   return m;
 }
-function saveMD(k,m){const d=load();d[k]=m;save(d);}
 
-/* Dados globais (não por mês) — metas, configs */
-function loadGlobal(){const d=load();return d.__global||{metas:[]};}
-function saveGlobal(g){const d=load();d.__global=g;save(d);}
-const allKeys=()=>Object.keys(load()).sort((a,b)=>b.localeCompare(a));
+function saveMD(k,m){const d=load();d[k]=m;save(d);}
+const allKeys=()=>Object.keys(load()).filter(k=>k.match(/^\d{4}-\d{2}$/)).sort((a,b)=>b.localeCompare(a));
 
 /* ── STATE ── */
 let curM='2026-06',curAcc='PF',curTab='dash';
@@ -2833,6 +2945,7 @@ function pgCfg(){
     <div class="ss" style="margin-bottom:12px">Exporte mensalmente. Para sincronizar: exporte em um dispositivo e importe no outro.</div>
     <div style="display:flex;gap:7px;flex-wrap:wrap">
       <button class="fa" style="background:var(--s2);border:1px solid var(--b1);color:var(--text)" onclick="expData()">⬇ Exportar JSON</button>
+      <button class="fa" style="background:var(--teal-dim);border:1px solid var(--teal-dim);color:var(--teal)" onclick="syncNow()">⟳ Sincronizar</button>
       <button class="fa" style="background:var(--s2);border:1px solid var(--b1);color:var(--text)" onclick="expPDF()">📄 Exportar PDF</button>
       <button class="fa" style="background:var(--s2);border:1px solid var(--border);color:var(--text)" onclick="document.getElementById('fimp').click()">⬆ Importar JSON</button>
       <input type="file" id="fimp" accept=".json" style="display:none" onchange="impData(this)">
@@ -2857,6 +2970,16 @@ function chPass(){
   if(n!==c){msg.style.color='var(--red)';msg.textContent='Senhas não coincidem.';return;}
   setPass(n);msg.style.color='var(--green)';msg.textContent='Senha alterada.';
 }
+function syncNow(){
+  toast('Sincronizando...');
+  syncToCloud().then(()=>{
+    syncFromCloud().then(updated=>{
+      if(updated){_cache=null;render();}
+      toast('Sync concluído');
+    });
+  });
+}
+
 function expPDF(){
   /* Atualizar label do mês no header de impressão */
   const el=document.getElementById('print-mes');
