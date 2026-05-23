@@ -281,6 +281,19 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .page>*{animation:up .2s ease both}
 .page>*:nth-child(2){animation-delay:.04s}.page>*:nth-child(3){animation-delay:.07s}
 .page>*:nth-child(4){animation-delay:.10s}.page>*:nth-child(5){animation-delay:.13s}
+
+/* ── MONTH NAV ── */
+.month-nav{display:flex;align-items:center;gap:2px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r-sm);padding:2px;flex-shrink:0}
+.mnav-btn{background:transparent;border:none;color:var(--sub);width:26px;height:26px;border-radius:6px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease);line-height:1}
+.mnav-btn:hover{background:var(--s3);color:var(--text)}
+.mnav-sel{background:transparent;border:none;color:var(--text);font-size:12px;font-weight:600;outline:none;cursor:pointer;padding:2px 4px;max-width:130px;letter-spacing:-.2px}
+.mnav-add{background:var(--gold);border:none;color:#000;width:22px;height:22px;border-radius:5px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-left:2px;transition:opacity var(--dur-fast) var(--ease)}
+.mnav-add:hover{opacity:.82}
+/* Saldo badge */
+.spill-badge{border-radius:var(--r-full);padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:-.2px;border:1px solid}
+/* Top icon buttons */
+.top-icon-btn{border:none;background:transparent;color:var(--sub);font-size:13px;cursor:pointer;padding:4px 6px;border-radius:var(--r-xs);transition:color var(--dur-fast) var(--ease);flex-shrink:0}
+.top-icon-btn:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -302,12 +315,19 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
   <div class="top">
     <div class="tlogo">naome<em>math</em></div>
     <div class="sp"></div>
-    <select class="msel" id="msel" onchange="changeMonth(this.value)"></select>
-    <button class="tbtn" style="background:var(--gold);color:#000;font-weight:700" onclick="addMonth()">+ mês</button>
-    <div id="spill" class="pill" style="display:none"></div>
-    <span id="sync-indicator" style="font-size:11px;font-weight:700;min-width:12px;text-align:center;cursor:default;color:var(--sub)"></span>
-    <button class="tbtn" id="theme-btn" onclick="toggleTheme()" style="background:var(--s2);border:1px solid var(--b1);color:var(--text);padding:5px 9px;font-size:13px">☀️</button>
-    <button class="tbtn" style="background:transparent;color:var(--sub);border:1px solid var(--b1)" onclick="logout()">Sair</button>
+    <!-- Navegador de mês -->
+    <div class="month-nav">
+      <button class="mnav-btn" onclick="navMonth(-1)" title="Mês anterior">‹</button>
+      <select class="mnav-sel" id="msel" onchange="changeMonth(this.value)"></select>
+      <button class="mnav-btn" onclick="navMonth(1)" title="Próximo mês">›</button>
+      <button class="mnav-add" onclick="addMonth()" title="Novo mês">+</button>
+    </div>
+    <!-- Saldo -->
+    <div id="spill" class="spill-badge" style="display:none"></div>
+    <!-- Sync + theme -->
+    <span id="sync-indicator" style="font-size:10px;font-weight:700;min-width:10px;text-align:center;color:var(--sub)"></span>
+    <button class="top-icon-btn" id="theme-btn" onclick="toggleTheme()" title="Tema">☀️</button>
+    <button class="top-icon-btn" onclick="logout()" style="font-size:11px">Sair</button>
   </div>
   <div class="tabs-wrap">
     <div class="tabs" id="tabs">
@@ -491,6 +511,17 @@ function init(){
   checkVenc();render();
 }
 
+
+function navMonth(dir){
+  const keys=allKeys();
+  const idx=keys.indexOf(curM);
+  const next=idx+(-dir); /* dir=-1 = mês anterior (índice maior), dir=1 = próximo (índice menor) */
+  if(next>=0&&next<keys.length){
+    curM=keys[next];
+    document.getElementById('msel').value=curM;
+    editingId=null;checkVenc();render();
+  }
+}
 function bSel(){
   const sel=document.getElementById('msel');if(!sel)return;
   const prev=sel.value||curM;
@@ -548,10 +579,10 @@ function updatePill(){
   const bal=inc-out;
   const pill=document.getElementById('spill');pill.style.display='';
   const pos=bal>=0;
-  pill.style.background=pos?'rgba(26,158,110,.1)':'rgba(201,64,64,.1)';
-  pill.style.borderColor=pos?'rgba(26,158,110,.3)':'rgba(201,64,64,.3)';
+  pill.style.background=pos?'rgba(26,158,110,.08)':'rgba(201,64,64,.08)';
+  pill.style.borderColor=pos?'rgba(26,158,110,.25)':'rgba(201,64,64,.25)';
   pill.style.color=pos?'var(--green)':'var(--red)';
-  pill.textContent=fmt(bal);
+  pill.textContent=(pos?'+':'')+fmt(bal);
 }
 
 function render(){
@@ -754,7 +785,7 @@ function pgDash(){
   const inv=m.inv.reduce((s,i)=>s+i.v,0);
   const out=bills+cards;
   const bal=inc-out-inv;
-  const totalPatr=allKeys().reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0);
+  const totalPatr=allKeys().reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0)+(loadGlobal().contas||[]).reduce((s,c)=>s+c.saldo,0);
   const pending=[...m.bills,...m.cards].filter(b=>!b.ok);
   const pendTot=pending.reduce((s,b)=>s+b.v,0);
   const today=new Date().getDate();
@@ -1072,7 +1103,12 @@ function pgInvest(){
   const m=getMD(curM);
   const tot=m.inv.reduce((s,i)=>s+i.v,0);
   const done=m.inv.filter(i=>i.ok).reduce((s,i)=>s+i.v,0);
-  const totalPatr=allKeys().reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0);
+  const totalInvAcum=allKeys().reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0);
+  const contas=getContas();
+  const totalContas=contas.reduce((s,c)=>s+c.saldo,0);
+  const totalPatr=totalInvAcum+totalContas;
+  const tipoLabel={corrente:'Corrente',poupanca:'Poupança',investimento:'Invest.',digital:'Digital',outro:'Outro'};
+  const tipoColor={corrente:'var(--blue)',poupanca:'var(--green)',investimento:'var(--purple)',digital:'var(--teal)',outro:'var(--sub)'};
   const invScore=calcInvScore();
   const iCol=invScore>=70?'var(--green)':invScore>=40?'var(--gold)':'var(--red)';
   const typeOpts=ITYPES.map(t=>`<option>${t}</option>`).join('');
@@ -1102,7 +1138,12 @@ function pgInvest(){
 
   return `
   <div class="g4">
-    <div class="card"><div class="sl">Patrimônio Total</div><div class="sv" style="color:var(--purple)">${fmt(totalPatr)}</div><div class="ss">acumulado</div></div>
+    <div class="card card-hi"><div class="sl">Patrimônio Real</div><div class="sv sv-lg" style="color:var(--purple)">${fmt(totalPatr)}</div>
+      <div class="ss" style="margin-top:6px;display:flex;flex-direction:column;gap:2px">
+        <span>Aportes acumulados: <strong>${fmt(totalInvAcum)}</strong></span>
+        <span>Contas bancárias: <strong>${fmt(totalContas)}</strong></span>
+      </div>
+    </div>
     <div class="card"><div class="sl">Aportado (mês)</div><div class="sv" style="color:var(--purple)">${fmt(tot)}</div>
       <div class="track"><div class="fill" style="width:${pct(done,tot)}%;background:var(--purple)"></div></div>
       <div class="ss">${m.inv.filter(i=>i.ok).length}/${m.inv.length} realizados</div>
@@ -1127,7 +1168,35 @@ function pgInvest(){
     </div>`}).join('')}
   </div>`:''}
 
-  <div class="af"><div class="aft">+ Novo Aporte</div>
+  <!-- CONTAS & SALDOS -->
+  <div class="card">
+    <div class="sh" style="margin-bottom:12px">
+      <div>
+        <div class="st">Contas & Saldos Bancários</div>
+        <div class="ss" style="margin-top:2px">Registre saldos atuais das suas contas para calcular o patrimônio real</div>
+      </div>
+      <div id="patr-total" style="text-align:right"></div>
+    </div>
+    <div id="contas-lista"></div>
+    <div class="af" style="margin-top:10px;border:none;background:transparent;padding:0">
+      <div class="aft">+ Conta / Saldo</div>
+      <div class="fr">
+        <input class="fi" id="cb-nome" placeholder="Ex: Santander, XP, Nubank" style="flex:2">
+        <input class="fi" id="cb-saldo" type="number" step="0.01" placeholder="Saldo atual">
+        <select class="fs" id="cb-tipo">
+          <option value="corrente">Conta Corrente</option>
+          <option value="poupanca">Poupança</option>
+          <option value="investimento">Investimento</option>
+          <option value="digital">Conta Digital</option>
+          <option value="outro">Outro</option>
+        </select>
+        <input class="fi" id="cb-data" type="date" style="max-width:140px">
+        <button class="fa" style="background:var(--teal);color:#fff" onclick="addConta()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="af"><div class="aft">+ Novo Aporte de Investimento</div>
     <div class="fr">
       <input class="fi" id="inv-n" placeholder="Ticker / Nome" style="flex:2">
       <input class="fi" id="inv-v" type="number" step="0.01" placeholder="Valor">
@@ -1148,6 +1217,34 @@ function drawInvest(){
   const keys=allKeys().slice(0,8).reverse();
   const hl=keys.map(k=>{const[y,mo]=k.split('-');return new Date(+y,+mo-1).toLocaleDateString('pt-BR',{month:'short'})});
   NC.bar('cvinvhist',hl,[{label:'Investido',data:keys.map(k=>getMD(k).inv.reduce((s,i)=>s+i.v,0)),color:'rgba(109,58,199,.75)'}]);
+  /* Renderizar lista de contas */
+  renderContasList();
+}
+
+function renderContasList(){
+  const lista=document.getElementById('contas-lista');
+  const patrTot=document.getElementById('patr-total');
+  if(!lista)return;
+  const contas=getContas();
+  const totalInvAcum=allKeys().reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0);
+  const totalContas=contas.reduce((s,c)=>s+c.saldo,0);
+  const totalPatr=totalInvAcum+totalContas;
+  if(patrTot){
+    patrTot.innerHTML=`<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Patrimônio Real</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--purple);font-variant-numeric:tabular-nums">${fmt(totalPatr)}</div>`;
+  }
+  if(!contas.length){lista.innerHTML='<div class="erow">Nenhuma conta cadastrada. Adicione abaixo.</div>';return;}
+  const tipoLabel={corrente:'Corrente',poupanca:'Poupança',investimento:'Invest.',digital:'Digital',outro:'Outro'};
+  const tipoColor={corrente:'var(--blue)',poupanca:'var(--green)',investimento:'var(--purple)',digital:'var(--teal)',outro:'var(--sub)'};
+  lista.innerHTML=contas.map(c=>`
+    <div class="crow">
+      <div class="md" style="background:${tipoColor[c.tipo]||'var(--sub)'}"></div>
+      <span class="rn">${san(c.nome)}</span>
+      <span class="rb" style="background:${tipoColor[c.tipo]||'var(--sub)'}18;color:${tipoColor[c.tipo]||'var(--sub)'}">${tipoLabel[c.tipo]||'Outro'}</span>
+      <span style="font-size:10px;color:var(--sub);flex-shrink:0">${c.data||''}</span>
+      <span class="rv" style="color:var(--text)">${fmt(c.saldo)}</span>
+      <button class="redit" onclick="atualizarSaldo('${c.id}')" title="Atualizar saldo">✎</button>
+      <button class="rdl" onclick="delConta('${c.id}')">×</button>
+    </div>`).join('');
 }
 
 function addInv(){
@@ -1297,7 +1394,7 @@ function pgProjecao(){
   const avgOut=avg(m=>m.bills.reduce((s,b)=>s+b.v,0)+m.cards.reduce((s,c)=>s+c.v,0));
   const avgInv=avg(m=>m.inv.reduce((s,i)=>s+i.v,0));
   const avgSaldo=Math.max(0,avgInc-avgOut-avgInv);
-  const patrimonioAtual=keys.reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0);
+  const patrimonioAtual=keys.reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0)+(loadGlobal().contas||[]).reduce((s,c)=>s+c.saldo,0);
   const gastosAnuais=avgOut*12;
   const metaIF=gastosAnuais*25;
   const pctIF=metaIF>0?Math.min(100,(patrimonioAtual/metaIF*100)):0;
@@ -1535,6 +1632,41 @@ function impData(input){
 function clearAll(){
   if(!confirm('Apagar TODOS os dados? Esta ação é irreversível.'))return;
   _cache=null;localStorage.removeItem('nmm_data');bSel();render();toast('Dados apagados');
+}
+
+
+/* ── CONTAS BANCÁRIAS / SALDOS ── */
+function getContas(){return loadGlobal().contas||[];}
+function saveContas(contas){const g=loadGlobal();g.contas=contas;saveGlobal(g);}
+
+function addConta(){
+  const nome=document.getElementById('cb-nome').value.trim();
+  const saldo=parseFloat(document.getElementById('cb-saldo').value);
+  const tipo=document.getElementById('cb-tipo').value;
+  const data=document.getElementById('cb-data').value;
+  if(!nome||isNaN(saldo)){toast('Preencha nome e saldo','err');return;}
+  const contas=getContas();
+  const existing=contas.find(c=>c.nome.toLowerCase()===nome.toLowerCase());
+  if(existing){
+    /* Atualizar saldo existente */
+    existing.saldo=saldo;existing.data=data||existing.data;
+    saveContas(contas);toast('Saldo atualizado');render();return;
+  }
+  contas.push({id:uid(),nome,saldo,tipo,data:data||new Date().toISOString().slice(0,10)});
+  saveContas(contas);clearForm('cb-nome','cb-saldo','cb-data');toast('Conta adicionada');render();
+}
+
+function delConta(id){
+  if(!confirm('Remover esta conta?'))return;
+  saveContas(getContas().filter(c=>c.id!==id));toast('Conta removida');render();
+}
+
+function atualizarSaldo(id){
+  const contas=getContas();const c=contas.find(x=>x.id===id);if(!c)return;
+  const novo=parseFloat(prompt('Novo saldo de '+c.nome+':',c.saldo));
+  if(isNaN(novo))return;
+  c.saldo=novo;c.data=new Date().toISOString().slice(0,10);
+  saveContas(contas);toast('Saldo atualizado');render();
 }
 
 /* ── ERROR BOUNDARY ── */
