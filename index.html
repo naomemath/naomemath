@@ -576,8 +576,9 @@ function checkVenc(){
 function updatePill(){
   const m=getMD(curM);
   const inc=m.inc.reduce((s,i)=>s+i.v,0);
+  const xfer=m.xfer.reduce((s,x)=>s+x.v,0);
   const out=m.bills.reduce((s,b)=>s+b.v,0)+m.cards.reduce((s,c)=>s+c.v,0)+m.inv.reduce((s,i)=>s+i.v,0);
-  const bal=inc-out;
+  const bal=(inc+xfer)-out;
   const pill=document.getElementById('spill');pill.style.display='';
   const pos=bal>=0;
   pill.style.background=pos?'rgba(26,158,110,.08)':'rgba(201,64,64,.08)';
@@ -932,11 +933,12 @@ const NC={
 function pgDash(){
   const m=getMD(curM);
   const inc=m.inc.reduce((s,i)=>s+i.v,0);
+  const xfer=m.xfer.reduce((s,x)=>s+x.v,0);
   const bills=m.bills.reduce((s,b)=>s+b.v,0);
   const cards=m.cards.reduce((s,c)=>s+c.v,0);
   const inv=m.inv.reduce((s,i)=>s+i.v,0);
   const out=bills+cards;
-  const bal=inc-out-inv;
+  const bal=(inc+xfer)-out-inv;
   const totalPatr=allKeys().reduce((s,k)=>s+getMD(k).inv.reduce((a,i)=>a+i.v,0),0)+(loadGlobal().contas||[]).reduce((s,c)=>s+c.saldo,0);
   const pending=[...m.bills,...m.cards].filter(b=>!b.ok);
   const pendTot=pending.reduce((s,b)=>s+b.v,0);
@@ -945,15 +947,16 @@ function pgDash(){
   const soon=[...m.bills,...m.cards].filter(b=>{
     if(b.ok||!b.date)return false;const d=parseInt(b.date),t=today;return !isNaN(d)&&d-t<=5&&d>=t&&curM===curMStr;
   }).sort((a,b)=>parseInt(a.date)-parseInt(b.date));
-  const segs=[{l:'Contas',v:bills,c:'#C94040'},{l:'Cartões',v:cards,c:'#6D3AC7'},{l:'Invest',v:inv,c:'#1A9E6E'},{l:'Sobra',v:Math.max(0,bal),c:'#C68A14'}].filter(s=>s.v>0);
+  const xferSegs=xfer>0?[{l:'PJ→PF',v:xfer,c:'#0B85A0'}]:[];
+  const segs=[...xferSegs,{l:'Contas',v:bills,c:'#C94040'},{l:'Cartões',v:cards,c:'#6D3AC7'},{l:'Invest',v:inv,c:'#1A9E6E'},{l:'Sobra',v:Math.max(0,bal),c:'#C68A14'}].filter(s=>s.v>0);
   const segTotal=segs.reduce((s,x)=>s+x.v,0)||1;
 
   return `
   <div class="g4">
     <div class="card">
       <div class="sl">Receita</div>
-      <div class="sv" style="color:var(--green)">${fmt(inc)}</div>
-      <div class="ss">${m.inc.filter(i=>i.ok).length}/${m.inc.length} recebidas</div>
+      <div class="sv" style="color:var(--green)">${fmt(inc+xfer)}</div>
+      <div class="ss">${m.inc.filter(i=>i.ok).length}/${m.inc.length} recebidas${xfer>0?` · +${fmt(xfer)} PJ`:''}</div>
     </div>
     <div class="card">
       <div class="sl">Gastos</div>
@@ -1029,6 +1032,7 @@ function drawDash(){
 function pgLancamentos(){
   const m=getMD(curM);
   const inc=m.inc.reduce((s,i)=>s+i.v,0),incPg=m.inc.filter(i=>i.ok).reduce((s,i)=>s+i.v,0);
+  const xfer=m.xfer.reduce((s,x)=>s+x.v,0),xferPg=m.xfer.filter(x=>x.ok).reduce((s,x)=>s+x.v,0);
   const bills=m.bills.reduce((s,b)=>s+b.v,0),billsPg=m.bills.filter(b=>b.ok).reduce((s,b)=>s+b.v,0);
   const cards=m.cards.reduce((s,c)=>s+c.v,0),cardsPg=m.cards.filter(c=>c.ok).reduce((s,c)=>s+c.v,0);
 
@@ -1544,7 +1548,7 @@ function pgProjecao(){
   const keys=allKeys();
   const ultimos=keys.slice(0,3);
   const avg=fn=>ultimos.length?ultimos.reduce((s,k)=>s+fn(getMD(k)),0)/ultimos.length:0;
-  const avgInc=avg(m=>m.inc.reduce((s,i)=>s+i.v,0));
+  const avgInc=avg(m=>m.inc.reduce((s,i)=>s+i.v,0)+m.xfer.reduce((s,x)=>s+x.v,0));
   const avgOut=avg(m=>m.bills.reduce((s,b)=>s+b.v,0)+m.cards.reduce((s,c)=>s+c.v,0));
   const avgInv=avg(m=>m.inv.reduce((s,i)=>s+i.v,0));
   const avgSaldo=Math.max(0,avgInc-avgOut-avgInv);
@@ -1630,11 +1634,13 @@ function pgAnalise(){
   const lbl=score>=70?'Ótima':'Regular';
   const m=getMD(curM);
   const inc=m.inc.reduce((s,i)=>s+i.v,0);
+  const xfer=m.xfer.reduce((s,x)=>s+x.v,0);
+  const renda=inc+xfer;
   const out=m.bills.reduce((s,b)=>s+b.v,0)+m.cards.reduce((s,c)=>s+c.v,0);
   const inv=m.inv.reduce((s,i)=>s+i.v,0);
-  const savR=inc>0?((inc-out)/inc*100).toFixed(1):0;
-  const invR=inc>0?(inv/inc*100).toFixed(1):0;
-  const cardR=inc>0?(m.cards.reduce((s,c)=>s+c.v,0)/inc*100).toFixed(1):0;
+  const savR=renda>0?((renda-out)/renda*100).toFixed(1):0;
+  const invR=renda>0?(inv/renda*100).toFixed(1):0;
+  const cardR=renda>0?(m.cards.reduce((s,c)=>s+c.v,0)/renda*100).toFixed(1):0;
 
   /* Comparativo últimos 6 meses */
   const ultimos=keys.slice(0,6).reverse();
@@ -1656,7 +1662,7 @@ function pgAnalise(){
   else if(+savR>=20)alertas.push({t:'g',m:'Boa taxa de economia: '+savR+'% da renda'});
   if(+invR<5)alertas.push({t:'y',m:'Investindo apenas '+invR+'% da renda — tente chegar a 10%'});
   else if(+invR>=10)alertas.push({t:'g',m:'Bom ritmo de investimento: '+invR+'% da renda'});
-  if(m.bills.filter(b=>!b.ok).length>0&&inc===0)alertas.push({t:'r',m:'Contas pendentes sem receita lançada neste mês'});
+  if(m.bills.filter(b=>!b.ok).length>0&&renda===0)alertas.push({t:'r',m:'Contas pendentes sem receita lançada neste mês'});
 
   return `
   ${alertas.length?`<div style="display:flex;flex-direction:column;gap:6px">${alertas.map(a=>`<div class="al al-${a.t}">${a.m}</div>`).join('')}</div>`:''}
@@ -1704,10 +1710,14 @@ function pgAnalise(){
 }
 
 function calcScore(k){
-  const m=getMD(k);const inc=m.inc.reduce((s,i)=>s+i.v,0);if(!inc)return 0;
+  const m=getMD(k);
+  const inc=m.inc.reduce((s,i)=>s+i.v,0);
+  const xfer=m.xfer.reduce((s,x)=>s+x.v,0);
+  const renda=inc+xfer;
+  if(!renda)return 0;
   const out=m.bills.reduce((s,b)=>s+b.v,0)+m.cards.reduce((s,c)=>s+c.v,0);
   const inv=m.inv.reduce((s,i)=>s+i.v,0);
-  const savR=(inc-out)/inc*100;const invR=inv/inc*100;
+  const savR=(renda-out)/renda*100;const invR=inv/renda*100;
   const paidR=m.bills.length?m.bills.filter(b=>b.ok).length/m.bills.length*100:100;
   return Math.round(Math.min(100,Math.max(0,Math.min(40,savR)+Math.min(30,invR*2)+paidR*.3)));
 }
