@@ -793,6 +793,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <button class="tab" data-t="invest" onclick="goTab('invest',this)">Investimentos</button>
     <button class="tab" data-t="metas" onclick="goTab('metas',this)">Metas</button>
     <button class="tab" data-t="transf" onclick="goTab('transf',this)">PJ → PF</button>
+    <button class="tab" data-t="proj" onclick="goTab('proj',this)">Projeção</button>
     <button class="tab" data-t="saude" onclick="goTab('saude',this)">Saúde</button>
     <button class="tab" data-t="cal" onclick="goTab('cal',this)">Calendário</button>
     <button class="tab" data-t="hist" onclick="goTab('hist',this)">Histórico</button>
@@ -829,243 +830,268 @@ const CARD_C={Nubank:'#8B5CF6',Santander:'#EF4444',BB:'#F59E0B',Outro:'#6B7280'}
    NANO CHARTS — Canvas API nativa, zero deps
 ═══════════════════════════════════════════════ */
 const NC={
-  /* Paleta padrão */
   PAL:['#6D3AC7','#C68A14','#1A9E6E','#C94040','#3B7DE8','#DB2777','#0B85A0','#65A30D'],
-
-  /* Formatar valor BRL */
   fmt:v=>(+v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),
 
-  /* Limpar canvas */
-  clear(el){
-    if(!el)return false;
-    el.width=el.offsetWidth||el.clientWidth||300;
-    el.height=el.offsetHeight||el.clientHeight||200;
+  /* Dimensionar canvas ao container */
+  size(el){
+    if(!el)return null;
+    const parent=el.parentElement;
+    const w=parent?parent.offsetWidth:300;
+    const h=el.getAttribute('height')||el.style.height||200;
+    el.width=w||300;
+    el.height=typeof h==='string'&&h.includes('px')?parseInt(h):(+h||200);
     return el.getContext('2d');
   },
 
-  /* DONUT */
+  /* DONUT — corrigido */
   donut(id,labels,values,opts){
     const el=document.getElementById(id);
-    const ctx=this.clear(el);
+    if(!el)return;
+    const ctx=this.size(el);
     if(!ctx||!values.length)return;
     const W=el.width,H=el.height;
-    const cx=W*0.42,cy=H/2,r=Math.min(cx,cy)*0.82,cut=0.65;
     const total=values.reduce((a,b)=>a+b,0);
     if(!total)return;
-    let angle=-Math.PI/2;
     const colors=opts&&opts.colors?opts.colors:this.PAL;
 
-    /* Segmentos */
+    /* Layout: donut à esquerda, legenda à direita */
+    const legW=Math.min(110,W*0.38);
+    const chartW=W-legW;
+    const cx=chartW/2, cy=H/2;
+    const r=Math.min(cx,cy)*0.78;
+    const cut=0.58; /* buraco menor = mais visível */
+
+    let angle=-Math.PI/2;
     values.forEach((v,i)=>{
       const sweep=v/total*Math.PI*2;
+      /* Anel via arc+arc */
       ctx.beginPath();
-      ctx.moveTo(cx,cy);
       ctx.arc(cx,cy,r,angle,angle+sweep);
       ctx.arc(cx,cy,r*cut,angle+sweep,angle,true);
       ctx.closePath();
       ctx.fillStyle=colors[i%colors.length];
-      ctx.globalAlpha=0.82;
+      ctx.globalAlpha=0.88;
       ctx.fill();
       angle+=sweep;
     });
     ctx.globalAlpha=1;
 
-    /* Legenda direita */
-    const legX=W*0.86,legY=cy-(labels.length*14)/2;
-    labels.forEach((lbl,i)=>{
-      const y=legY+i*16;
+    /* Legenda */
+    const maxItems=Math.floor((H-16)/18);
+    const show=labels.slice(0,maxItems);
+    const startY=cy-(show.length*18)/2+9;
+    show.forEach((lbl,i)=>{
+      const y=startY+i*18;
       ctx.fillStyle=colors[i%colors.length];
       ctx.globalAlpha=0.9;
-      ctx.beginPath();
-      ctx.arc(legX-W*0.08,y,4,0,Math.PI*2);
-      ctx.fill();
+      ctx.beginPath();ctx.arc(chartW+10,y,5,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=1;
       ctx.fillStyle='#72728a';
       ctx.font='10px DM Sans,sans-serif';
       ctx.textAlign='left';
-      ctx.fillText(lbl.length>10?lbl.slice(0,9)+'…':lbl,legX-W*0.068,y+3.5);
+      const pct=total>0?(values[i]/total*100).toFixed(0)+'%':'';
+      const short=lbl.length>10?lbl.slice(0,9)+'…':lbl;
+      ctx.fillText(short+' '+pct,chartW+20,y+3.5);
     });
   },
 
-  /* BAR VERTICAL */
+  /* BAR VERTICAL — corrigido */
   bar(id,labels,datasets,opts){
     const el=document.getElementById(id);
-    const ctx=this.clear(el);
-    if(!ctx)return;
+    if(!el)return;
+    const ctx=this.size(el);
+    if(!ctx||!labels.length)return;
     const W=el.width,H=el.height;
-    const pad={t:12,r:12,b:28,l:46};
+
+    /* Calcular máximo real */
+    const allVals=datasets.flatMap(d=>d.data).filter(v=>!isNaN(v)&&v>=0);
+    if(!allVals.length)return;
+    const maxV=Math.max(...allVals)*1.15||1;
+
+    const pad={t:24,r:12,b:28,l:50};
     const chartW=W-pad.l-pad.r;
     const chartH=H-pad.t-pad.b;
     const n=labels.length;
-    const allVals=datasets.flatMap(d=>d.data);
-    const maxV=Math.max(...allVals,1);
+    const nDs=datasets.length;
+    const grpW=chartW/n;
+    const barW=Math.min(grpW*0.35,28);
+    const barGap=2;
 
-    /* Grid */
-    ctx.strokeStyle='rgba(255,255,255,0.05)';
-    ctx.lineWidth=1;
-    [0,.25,.5,.75,1].forEach(f=>{
+    /* Grid lines */
+    const steps=4;
+    for(let i=0;i<=steps;i++){
+      const f=i/steps;
       const y=pad.t+chartH*(1-f);
+      ctx.strokeStyle='rgba(128,128,180,0.1)';
+      ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
-      /* Tick */
-      ctx.fillStyle='#4a4a62';
+      ctx.fillStyle='#72728a';
       ctx.font='9px DM Sans,sans-serif';
       ctx.textAlign='right';
       const val=maxV*f;
-      const lbl=val>=1000?(val/1000).toFixed(0)+'k':val.toFixed(0);
-      ctx.fillText('R$'+lbl,pad.l-4,y+3);
-    });
+      ctx.fillText(val>=1000?'R$'+(val/1000).toFixed(0)+'k':'R$'+val.toFixed(0),pad.l-4,y+3);
+    }
 
     /* Barras */
-    const grpW=chartW/n;
-    const barW=grpW*0.32;
     datasets.forEach((ds,di)=>{
       const color=ds.color||this.PAL[di%this.PAL.length];
       ds.data.forEach((v,i)=>{
-        const h=v/maxV*chartH;
-        const x=pad.l+i*grpW+(di===0?grpW*0.12:grpW*0.5);
+        if(isNaN(v)||v<0)return;
+        const h=Math.max(v/maxV*chartH,v>0?2:0);
+        const totalBarW=nDs*barW+(nDs-1)*barGap;
+        const startX=pad.l+i*grpW+(grpW-totalBarW)/2+di*(barW+barGap);
         const y=pad.t+chartH-h;
         ctx.fillStyle=color;
-        ctx.globalAlpha=0.75;
+        ctx.globalAlpha=0.82;
         ctx.beginPath();
-        ctx.roundRect?ctx.roundRect(x,y,barW,h,3):ctx.rect(x,y,barW,h);
+        if(ctx.roundRect)ctx.roundRect(startX,y,barW,h,3);
+        else ctx.rect(startX,y,barW,h);
         ctx.fill();
       });
     });
     ctx.globalAlpha=1;
 
     /* Labels X */
-    ctx.fillStyle='#4a4a62';
-    ctx.font='10px DM Sans,sans-serif';
+    ctx.fillStyle='#72728a';
+    ctx.font='9px DM Sans,sans-serif';
     ctx.textAlign='center';
     labels.forEach((lbl,i)=>{
       ctx.fillText(lbl,pad.l+i*grpW+grpW/2,H-8);
     });
 
-    /* Legenda */
+    /* Legenda topo */
     if(datasets.length>1){
       let lx=pad.l;
       datasets.forEach((ds,i)=>{
-        ctx.fillStyle=ds.color||this.PAL[i];
-        ctx.globalAlpha=0.85;
-        ctx.fillRect(lx,4,8,6);
+        const col=ds.color||this.PAL[i];
+        ctx.fillStyle=col;ctx.globalAlpha=0.85;
+        ctx.fillRect(lx,6,10,4);
         ctx.globalAlpha=1;
         ctx.fillStyle='#72728a';
         ctx.font='9px DM Sans,sans-serif';
         ctx.textAlign='left';
-        ctx.fillText(ds.label||'',lx+11,10);
-        lx+=ds.label?(ds.label.length*5.5+20):0;
+        ctx.fillText(ds.label||'',lx+13,11);
+        lx+=(ds.label?ds.label.length*5.2+22:20);
       });
     }
   },
 
-  /* BAR HORIZONTAL */
+  /* BAR HORIZONTAL — corrigido */
   barH(id,labels,values,opts){
     const el=document.getElementById(id);
-    const ctx=this.clear(el);
+    if(!el)return;
+    const ctx=this.size(el);
     if(!ctx||!values.length)return;
     const W=el.width,H=el.height;
     const maxV=Math.max(...values,1);
-    const pad={t:8,r:60,b:8,l:80};
-    const chartW=W-pad.l-pad.r;
-    const barH=Math.min(18,(H-pad.t-pad.b)/values.length-6);
     const colors=opts&&opts.colors?opts.colors:this.PAL;
+    const n=values.length;
+    const rowH=(H-8)/n;
+    const barH=Math.min(rowH*0.55,18);
+    const labW=Math.min(80,W*0.28);
+    const valW=56;
+    const chartW=W-labW-valW-8;
 
     values.forEach((v,i)=>{
-      const y=pad.t+i*((H-pad.t-pad.b)/values.length)+4;
+      const y=4+i*rowH+(rowH-barH)/2;
       const w=v/maxV*chartW;
       /* Track */
-      ctx.fillStyle='rgba(255,255,255,0.05)';
+      ctx.fillStyle='rgba(128,128,180,0.08)';
       ctx.beginPath();
-      ctx.roundRect?ctx.roundRect(pad.l,y,chartW,barH,3):ctx.rect(pad.l,y,chartW,barH);
+      if(ctx.roundRect)ctx.roundRect(labW,y,chartW,barH,3);
+      else ctx.rect(labW,y,chartW,barH);
       ctx.fill();
       /* Bar */
-      ctx.fillStyle=colors[i%colors.length];
-      ctx.globalAlpha=0.75;
-      ctx.beginPath();
-      ctx.roundRect?ctx.roundRect(pad.l,y,w,barH,3):ctx.rect(pad.l,y,w,barH);
-      ctx.fill();
-      ctx.globalAlpha=1;
-      /* Label esquerda */
+      if(w>0){
+        ctx.fillStyle=colors[i%colors.length];
+        ctx.globalAlpha=0.78;
+        ctx.beginPath();
+        if(ctx.roundRect)ctx.roundRect(labW,y,w,barH,3);
+        else ctx.rect(labW,y,w,barH);
+        ctx.fill();
+        ctx.globalAlpha=1;
+      }
+      /* Label */
       ctx.fillStyle='#72728a';
       ctx.font='10px DM Sans,sans-serif';
       ctx.textAlign='right';
-      const lbl=labels[i]||'';
-      ctx.fillText(lbl.length>9?lbl.slice(0,9)+'…':lbl,pad.l-6,y+barH/2+3.5);
-      /* Valor direita */
+      const lbl=(labels[i]||'').length>9?(labels[i]).slice(0,9)+'…':(labels[i]||'');
+      ctx.fillText(lbl,labW-6,y+barH/2+3.5);
+      /* Valor */
       ctx.fillStyle='#e8e8f0';
-      ctx.font='10px DM Sans,sans-serif';
       ctx.textAlign='left';
-      const vlbl=v>=1000?'R$'+(v/1000).toFixed(0)+'k':v>0?'R$'+v.toFixed(0):'';
-      ctx.fillText(vlbl,pad.l+w+6,y+barH/2+3.5);
+      ctx.fillText(v>=1000?'R$'+(v/1000).toFixed(0)+'k':(v>0?'R$'+v.toFixed(0):''),labW+w+6,y+barH/2+3.5);
     });
   },
 
-  /* LINE */
+  /* LINE — corrigido */
   line(id,labels,datasets,opts){
     const el=document.getElementById(id);
-    const ctx=this.clear(el);
-    if(!ctx)return;
+    if(!el)return;
+    const ctx=this.size(el);
+    if(!ctx||!labels.length)return;
     const W=el.width,H=el.height;
-    const pad={t:16,r:16,b:28,l:46};
-    const chartW=W-pad.l-pad.r;
-    const chartH=H-pad.t-pad.b;
     const allVals=datasets.flatMap(d=>d.data).filter(v=>!isNaN(v));
     if(!allVals.length)return;
     let minV=Math.min(...allVals);
     let maxV=Math.max(...allVals);
-    if(minV===maxV){minV=minV-1;maxV=maxV+1;}
+    const pad5=(maxV-minV)*0.12||Math.abs(maxV)*0.1||1;
+    minV-=pad5; maxV+=pad5;
     const range=maxV-minV||1;
     const n=labels.length;
+    const pad={t:18,r:16,b:26,l:50};
+    const cW=W-pad.l-pad.r;
+    const cH=H-pad.t-pad.b;
 
     /* Grid */
-    ctx.strokeStyle='rgba(255,255,255,0.05)';
-    ctx.lineWidth=1;
-    [0,.5,1].forEach(f=>{
-      const y=pad.t+chartH*(1-f);
+    [0,0.25,0.5,0.75,1].forEach(f=>{
+      const y=pad.t+cH*(1-f);
+      ctx.strokeStyle='rgba(128,128,180,0.1)';
+      ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
-      ctx.fillStyle='#4a4a62';
+      const val=minV+range*f;
+      ctx.fillStyle='#72728a';
       ctx.font='9px DM Sans,sans-serif';
       ctx.textAlign='right';
-      const val=minV+range*f;
-      const lbl=Math.abs(val)>=1000?(val/1000).toFixed(0)+'k':val.toFixed(0);
+      const lbl=Math.abs(val)>=1000?(val/1000).toFixed(1)+'k':val.toFixed(0);
       ctx.fillText('R$'+lbl,pad.l-4,y+3);
     });
 
     /* Labels X */
-    ctx.fillStyle='#4a4a62';
+    ctx.fillStyle='#72728a';
     ctx.font='9px DM Sans,sans-serif';
     ctx.textAlign='center';
     labels.forEach((lbl,i)=>{
-      const x=pad.l+i*(chartW/(n-1||1));
-      ctx.fillText(lbl,x,H-8);
+      ctx.fillText(lbl,pad.l+i*(cW/(n-1||1)),H-6);
     });
 
-    /* Linhas e fill */
+    /* Linhas */
     datasets.forEach((ds,di)=>{
       const color=ds.color||this.PAL[di%this.PAL.length];
       const pts=ds.data.map((v,i)=>({
-        x:pad.l+i*(chartW/(n-1||1)),
-        y:pad.t+chartH*(1-(v-minV)/range)
+        x:pad.l+i*(cW/(n-1||1)),
+        y:pad.t+cH*(1-(v-minV)/range)
       }));
-      if(pts.length<2)return;
+      if(pts.length<1)return;
 
       /* Fill */
       ctx.beginPath();
-      ctx.moveTo(pts[0].x,pad.t+chartH);
+      ctx.moveTo(pts[0].x,pad.t+cH);
       pts.forEach(p=>ctx.lineTo(p.x,p.y));
-      ctx.lineTo(pts[pts.length-1].x,pad.t+chartH);
+      ctx.lineTo(pts[pts.length-1].x,pad.t+cH);
       ctx.closePath();
       ctx.fillStyle=color;
-      ctx.globalAlpha=0.08;
+      ctx.globalAlpha=0.07;
       ctx.fill();
       ctx.globalAlpha=1;
 
-      /* Linha */
+      /* Linha suave */
       ctx.beginPath();
       ctx.moveTo(pts[0].x,pts[0].y);
       for(let i=1;i<pts.length;i++){
-        const cp1x=(pts[i-1].x+pts[i].x)/2;
-        ctx.bezierCurveTo(cp1x,pts[i-1].y,cp1x,pts[i].y,pts[i].x,pts[i].y);
+        const cpx=(pts[i-1].x+pts[i].x)/2;
+        ctx.bezierCurveTo(cpx,pts[i-1].y,cpx,pts[i].y,pts[i].x,pts[i].y);
       }
       ctx.strokeStyle=color;
       ctx.lineWidth=1.5;
@@ -1075,10 +1101,8 @@ const NC={
 
       /* Pontos */
       pts.forEach(p=>{
-        ctx.beginPath();
-        ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
-        ctx.fillStyle=color;
-        ctx.fill();
+        ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
+        ctx.fillStyle=color;ctx.fill();
       });
     });
 
@@ -1086,15 +1110,14 @@ const NC={
     if(datasets.length>1){
       let lx=pad.l;
       datasets.forEach((ds,i)=>{
-        ctx.fillStyle=ds.color||this.PAL[i];
-        ctx.globalAlpha=0.85;
-        ctx.fillRect(lx,4,10,3);
+        ctx.fillStyle=ds.color||this.PAL[i];ctx.globalAlpha=0.85;
+        ctx.fillRect(lx,5,12,3);
         ctx.globalAlpha=1;
         ctx.fillStyle='#72728a';
         ctx.font='9px DM Sans,sans-serif';
         ctx.textAlign='left';
-        ctx.fillText(ds.label||'',lx+13,9);
-        lx+=ds.label?(ds.label.length*5+22):0;
+        ctx.fillText(ds.label||'',lx+15,10);
+        lx+=(ds.label?ds.label.length*5+22:22);
       });
     }
   },
@@ -1103,23 +1126,16 @@ const NC={
   ring(id,score,color){
     const el=document.getElementById(id);
     if(!el)return;
-    const size=Math.min(el.offsetWidth||88,el.offsetHeight||88);
-    el.width=size; el.height=size;
+    const size=Math.min(el.offsetWidth||88,el.offsetHeight||88,90);
+    el.width=size;el.height=size;
     const ctx=el.getContext('2d');
-    const cx=size/2,cy=size/2,r=size*0.42;
+    const cx=size/2,cy=size/2,r=size*0.40;
     ctx.clearRect(0,0,size,size);
-    ctx.beginPath();
-    ctx.arc(cx,cy,r,0,Math.PI*2);
-    ctx.strokeStyle='rgba(255,255,255,0.07)';
-    ctx.lineWidth=size*0.09;
-    ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(128,128,180,0.12)';ctx.lineWidth=size*0.09;ctx.stroke();
     if(score>0){
-      ctx.beginPath();
-      ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+(score/100)*Math.PI*2);
-      ctx.strokeStyle=color;
-      ctx.lineWidth=size*0.09;
-      ctx.lineCap='round';
-      ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+(score/100)*Math.PI*2);
+      ctx.strokeStyle=color;ctx.lineWidth=size*0.09;ctx.lineCap='round';ctx.stroke();
     }
   }
 };
@@ -1265,12 +1281,13 @@ function updatePill(){
 
 function render(){
   dC();updatePill();
-  const fns={dash:pgDash,entradas:pgEntradas,contas:pgContas,cartoes:pgCartoes,invest:pgInvest,metas:pgMetas,transf:pgTransf,cal:pgCalendario,saude:pgSaude,hist:pgHist,cfg:pgCfg};
+  const fns={dash:pgDash,entradas:pgEntradas,contas:pgContas,cartoes:pgCartoes,invest:pgInvest,metas:pgMetas,transf:pgTransf,proj:pgProjecao,cal:pgCalendario,saude:pgSaude,hist:pgHist,cfg:pgCfg};
   document.getElementById('pg').innerHTML=(fns[curTab]||pgDash)();
   document.querySelector('.scroll').scrollTop=0;
   requestAnimationFrame(()=>{
     if(curTab==='dash')drawDash();
     if(curTab==='metas')drawMetas();
+    if(curTab==='proj')drawProjecao();
     if(curTab==='saude')drawSaude();
     if(curTab==='hist')drawHist();
     if(curTab==='invest')drawInvest();
@@ -2283,6 +2300,148 @@ function jumpTo(k){curM=k;document.getElementById('msel').value=k;curTab='dash';
 /* ══════════════════════════════════
    CONFIG
 ══════════════════════════════════ */
+
+/* ══════════════════════════════════════
+   FASE 6 — PROJEÇÃO FINANCEIRA
+══════════════════════════════════════ */
+function pgProjecao(){
+  const keys=allKeys();
+
+  /* Médias dos últimos 3 meses */
+  const ultimos=keys.slice(0,3);
+  const avg=(fn)=>ultimos.length?ultimos.reduce((s,k)=>s+fn(getMD(k)),0)/ultimos.length:0;
+
+  const avgInc=avg(m=>m.pf.inc.reduce((s,i)=>s+i.v,0));
+  const avgOut=avg(m=>m.pf.bills.reduce((s,b)=>s+b.v,0)+m.cards.reduce((s,c)=>s+c.v,0));
+  const avgInv=avg(m=>m.pf.inv.reduce((s,i)=>s+i.v,0)+m.pj.inv.reduce((s,i)=>s+i.v,0));
+  const avgSaldo=Math.max(0,avgInc-avgOut-avgInv);
+  const taxaInv=avgInc>0?(avgInv/avgInc*100):0;
+
+  /* Patrimônio acumulado atual */
+  const patrimonioAtual=keys.reduce((s,k)=>{
+    const m=getMD(k);
+    return s+m.pf.inv.reduce((a,i)=>a+i.v,0)+m.pj.inv.reduce((a,i)=>a+i.v,0);
+  },0);
+
+  /* Simulador de independência financeira */
+  /* Regra: precisar de 25x gastos anuais investidos (regra dos 4%) */
+  const gastosAnuais=(avgOut)*12;
+  const metaIF=gastosAnuais*25;
+  const pctIF=metaIF>0?Math.min(100,(patrimonioAtual/metaIF*100)):0;
+  const faltaIF=Math.max(0,metaIF-patrimonioAtual);
+
+  /* Projeção 12 meses com aportes atuais (sem juros) */
+  const proj12=patrimonioAtual+avgInv*12;
+  /* Projeção com rendimento médio de 0.8%/mês (renda fixa ~10%a.a.) */
+  let projJuros=patrimonioAtual;
+  for(let i=0;i<12;i++) projJuros=projJuros*1.008+avgInv;
+
+  /* Meses até IF (aportes atuais + 0.8%/mês) */
+  let simPat=patrimonioAtual, mesesIF=0;
+  if(avgInv>0||simPat>0){
+    while(simPat<metaIF&&mesesIF<600){
+      simPat=simPat*1.008+avgInv;
+      mesesIF++;
+    }
+  }
+  const anosIF=mesesIF>0?(mesesIF/12).toFixed(1):null;
+
+  /* Projeção 12 meses — dados para o gráfico */
+  const projLabels=[];const projVals=[];const projJurosVals=[];
+  let p1=patrimonioAtual,p2=patrimonioAtual;
+  for(let i=1;i<=12;i++){
+    const d=new Date();d.setMonth(d.getMonth()+i);
+    projLabels.push(d.toLocaleDateString('pt-BR',{month:'short'}));
+    p1+=avgInv; projVals.push(Math.round(p1));
+    p2=p2*1.008+avgInv; projJurosVals.push(Math.round(p2));
+  }
+
+  /* Reserva de emergência */
+  const reservaMeta=avgOut*6;
+  const reservaAtual=0; /* placeholder — futuramente integrar com conta reserva */
+
+  return '<div class="g4">'
+    +'<div class="card"><div class="sl">Renda Média/mês</div><div class="sv" style="color:var(--green)">'+fmt(avgInc)+'</div><div class="ss">últimos '+ultimos.length+' meses</div></div>'
+    +'<div class="card"><div class="sl">Gasto Médio/mês</div><div class="sv" style="color:var(--red)">'+fmt(avgOut)+'</div><div class="ss">contas + cartões</div></div>'
+    +'<div class="card"><div class="sl">Aporte Médio/mês</div><div class="sv" style="color:var(--purple)">'+fmt(avgInv)+'</div><div class="ss">'+(taxaInv>0?taxaInv.toFixed(1)+'% da renda':'sem aportes')+'</div></div>'
+    +'<div class="card"><div class="sl">Sobra Média/mês</div><div class="sv" style="color:'+(avgSaldo>0?'var(--green)':'var(--red)')+'">'+fmt(avgSaldo)+'</div><div class="ss">para investir ou guardar</div></div>'
+    +'</div>'
+
+    /* Independência financeira */
+    +'<div class="card">'
+      +'<div class="sh" style="margin-bottom:12px">'
+        +'<div><div class="st">Independência Financeira</div><div class="ss" style="margin-top:2px">Regra dos 4% — precisar de 25× seus gastos anuais investidos</div></div>'
+        +(anosIF&&mesesIF<600?'<div style="text-align:right"><div class="sl">Estimativa</div><div style="font-family:\'Syne\',sans-serif;font-size:18px;font-weight:800;color:var(--gold)">'+anosIF+' anos</div></div>':'')
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">'
+        +'<div><div class="meta-val-label">Patrimônio Atual</div><div class="meta-val" style="color:var(--purple)">'+fmt(patrimonioAtual)+'</div></div>'
+        +'<div><div class="meta-val-label">Meta IF</div><div class="meta-val">'+fmt(metaIF)+'</div><div style="font-size:10px;color:var(--sub)">25× R$'+Math.round(gastosAnuais/1000)+'k/ano</div></div>'
+        +'<div><div class="meta-val-label">Falta</div><div class="meta-val" style="color:var(--orange)">'+fmt(faltaIF)+'</div></div>'
+      +'</div>'
+      +'<div style="background:var(--s3);border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px">'
+        +'<div style="height:100%;width:'+pctIF.toFixed(1)+'%;background:linear-gradient(90deg,var(--purple),var(--green));border-radius:4px;transition:width .8s"></div>'
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--sub)">'+pctIF.toFixed(1)+'% do caminho para IF'+(metaIF===0?' — lance gastos para calcular':'')+'</div>'
+    +'</div>'
+
+    /* Projeção 12 meses */
+    +'<div class="card"><div class="sh" style="margin-bottom:10px"><div class="st">Projeção 12 Meses</div>'
+      +'<div style="display:flex;gap:12px;font-size:10px;color:var(--sub)">'
+        +'<span>Sem juros: <strong style="color:var(--text)">'+fmt(proj12)+'</strong></span>'
+        +'<span>Com 0.8%/mês: <strong style="color:var(--green)">'+fmt(projJuros)+'</strong></span>'
+      +'</div></div>'
+      +'<div class="ch ch-m"><canvas id="cvproj"></canvas></div>'
+    +'</div>'
+
+    /* Reserva de emergência */
+    +'<div class="g2">'
+      +'<div class="card"><div class="sl">Reserva de Emergência</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">'
+          +'<div><div class="meta-val-label">Meta (6 meses)</div><div class="meta-val" style="color:var(--teal)">'+fmt(reservaMeta)+'</div></div>'
+          +'<div style="text-align:right"><div class="meta-val-label">Ideal por mês</div><div class="meta-val">'+fmt(avgOut)+'</div></div>'
+        +'</div>'
+        +'<div class="track" style="margin-top:10px"><div class="fill" style="width:0%;background:var(--teal)"></div></div>'
+        +'<div class="ss" style="margin-top:5px">Use a aba Metas para criar sua reserva</div>'
+      +'</div>'
+      +'<div class="card"><div class="sl">Cenários de Aporte</div>'
+        +['50','100','150'].map(pct=>{
+          const extra=avgInc*pct/100;
+          let sp=patrimonioAtual,m=0;
+          while(sp<metaIF&&m<600){sp=sp*1.008+extra;m++;}
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b1)">'
+            +'<div style="font-size:12px">Investir <strong>'+pct+'%</strong> da renda</div>'
+            +'<div style="text-align:right"><div style="font-weight:700;font-size:13px;color:var(--purple)">'+fmt(extra)+'/mês</div>'
+            +(m<600&&m>0?'<div style="font-size:10px;color:var(--sub)">IF em '+(m/12).toFixed(1)+' anos</div>':'<div style="font-size:10px;color:var(--sub)">Lance dados para calcular</div>')
+            +'</div></div>';
+        }).join('')
+      +'</div>'
+    +'</div>';
+}
+
+function drawProjecao(){
+  const keys=allKeys();
+  const ultimos=keys.slice(0,3);
+  const avg=(fn)=>ultimos.length?ultimos.reduce((s,k)=>s+fn(getMD(k)),0)/ultimos.length:0;
+  const avgInv=avg(m=>m.pf.inv.reduce((s,i)=>s+i.v,0)+m.pj.inv.reduce((s,i)=>s+i.v,0));
+  const patrimonioAtual=keys.reduce((s,k)=>{
+    const m=getMD(k);
+    return s+m.pf.inv.reduce((a,i)=>a+i.v,0)+m.pj.inv.reduce((a,i)=>a+i.v,0);
+  },0);
+  const projLabels=[];const projVals=[];const projJurosVals=[];
+  let p1=patrimonioAtual,p2=patrimonioAtual;
+  for(let i=1;i<=12;i++){
+    const d=new Date();d.setMonth(d.getMonth()+i);
+    projLabels.push(d.toLocaleDateString('pt-BR',{month:'short'}));
+    p1+=avgInv;projVals.push(Math.round(p1));
+    p2=p2*1.008+avgInv;projJurosVals.push(Math.round(p2));
+  }
+  NC.line('cvproj',projLabels,[
+    {label:'Sem juros',data:projVals,color:'#6D3AC7'},
+    {label:'Com 0.8%/mês',data:projJurosVals,color:'#1A9E6E'},
+  ]);
+}
+
+
 function pgCfg(){
   return `<div class="card">
     <div class="st" style="margin-bottom:12px">🔒 Alterar Senha</div>
