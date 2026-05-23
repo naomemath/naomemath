@@ -236,11 +236,16 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 }
 
 /* ── TABS ── */
+.tabs-wrap{position:relative;flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--b1)}
+.tabs-wrap::before,.tabs-wrap::after{
+  content:'';position:absolute;top:0;bottom:0;width:24px;z-index:10;pointer-events:none;
+}
+.tabs-wrap::before{left:0;background:linear-gradient(90deg,var(--s1),transparent)}
+.tabs-wrap::after{right:0;background:linear-gradient(-90deg,var(--s1),transparent)}
 .tabs{
   display:flex;gap:1px;padding:0 20px;
-  border-bottom:1px solid var(--b1);
-  flex-shrink:0;overflow-x:auto;
-  background:var(--s1);height:38px;align-items:center;
+  overflow-x:auto;background:transparent;
+  height:38px;align-items:center;
 }
 .tabs::-webkit-scrollbar{display:none}
 .tab{
@@ -807,7 +812,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <button class="tbtn" id="theme-btn" onclick="toggleTheme()" title="Alternar tema (claro/escuro)" style="background:var(--s2);border:1px solid var(--b2);color:var(--text);padding:5px 10px;font-size:13px;line-height:1;letter-spacing:.2px;font-weight:600">☀️</button>
     <button class="tbtn" style="background:transparent;color:var(--sub);border:1px solid var(--b1)" onclick="logout()">Sair</button>
   </div>
-  <div class="tabs" id="tabs">
+  <div class="tabs-wrap"><div class="tabs" id="tabs">
     <button class="tab on" data-t="dash" onclick="goTab('dash',this)">Dashboard</button>
     <button class="tab" data-t="entradas" onclick="goTab('entradas',this)">Entradas</button>
     <button class="tab" data-t="contas" onclick="goTab('contas',this)">Contas</button>
@@ -822,7 +827,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     <button class="tab" data-t="comp" onclick="goTab('comp',this)">Comparativo</button>
     <button class="tab" data-t="hist" onclick="goTab('hist',this)">Histórico</button>
     <button class="tab" data-t="cfg" onclick="goTab('cfg',this)">Config</button>
-  </div>
+  </div></div>
   <div class="scroll"><div class="page" id="pg"><div class="print-header" style="margin-bottom:16px"><div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800">naomemath · finanças</div><div style="font-size:11px;color:#666;margin-top:2px" id="print-mes"></div></div></div></div>
 </div>
 
@@ -836,10 +841,42 @@ const mLabel=k=>{const[y,m]=k.split('-');const s=new Date(+y,+m-1).toLocaleDateS
 const CHK=`<svg viewBox="0 0 12 12"><polyline points="1.5,6.5 4.5,9.5 10.5,2.5"/></svg>`;
 const now=new Date();
 
-function toast(msg,col='var(--text)'){
+
+/* Error boundary global — evita tela branca */
+window.addEventListener('error',function(e){
+  console.error('naomemath error:',e.error);
+  const pg=document.getElementById('pg');
+  if(pg&&!pg.innerHTML){
+    pg.innerHTML='<div class="card" style="margin:20px;padding:24px;text-align:center">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:8px">Algo deu errado</div>'
+      +'<div style="font-size:12px;color:var(--sub)">'+e.message+'</div>'
+      +'<button class="fa" style="background:var(--gold);color:#000;margin-top:12px" onclick="render()">Tentar novamente</button>'
+      +'</div>';
+  }
+});
+
+const san=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function clearForm(...ids){
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(el.type==='checkbox')el.checked=false;
+    else if(el.type==='number')el.value='';
+    else el.value='';
+  });
+}
+
+function toast(msg,col){
   const t=document.getElementById('toast');
-  t.textContent=msg;t.style.color=col;t.style.opacity='1';
-  clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',2000);
+  const isErr=col&&(col.includes('red')||col.includes('EF'));
+  t.textContent=msg;
+  t.style.color=isErr?'var(--red)':'var(--green)';
+  t.style.borderColor=isErr?'rgba(201,64,64,.3)':'rgba(26,158,110,.3)';
+  t.style.opacity='1';
+  t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(4px)';},2200);
 }
 
 /* ── CATS ── */
@@ -860,10 +897,15 @@ const NC={
   /* Dimensionar canvas ao container */
   size(el){
     if(!el)return null;
-    const parent=el.parentElement;
-    const w=parent?parent.offsetWidth:300;
+    /* Calcular largura de forma robusta — evita 0 antes do layout */
+    let w=el.offsetWidth||el.parentElement?.offsetWidth||el.parentElement?.parentElement?.offsetWidth||0;
+    if(!w){
+      /* Fallback: usar clientWidth da cadeia de pais */
+      let p=el.parentElement;
+      while(p&&!w){w=p.clientWidth;p=p.parentElement;}
+    }
     const h=el.getAttribute('height')||el.style.height||200;
-    el.width=w||300;
+    el.width=w||320;
     el.height=typeof h==='string'&&h.includes('px')?parseInt(h):(+h||200);
     return el.getContext('2d');
   },
@@ -873,7 +915,14 @@ const NC={
     const el=document.getElementById(id);
     if(!el)return;
     const ctx=this.size(el);
-    if(!ctx||!values.length)return;
+    if(!ctx)return;
+    if(!values.length||!values.some(v=>v>0)){
+      ctx.fillStyle='rgba(128,128,180,0.15)';
+      ctx.beginPath();ctx.arc(el.width*0.42,el.height/2,el.height*0.35,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#72728a';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
+      ctx.fillText('Sem dados',el.width*0.42,el.height/2+3);
+      return;
+    }
     const W=el.width,H=el.height;
     const total=values.reduce((a,b)=>a+b,0);
     if(!total)return;
@@ -925,7 +974,11 @@ const NC={
     const el=document.getElementById(id);
     if(!el)return;
     const ctx=this.size(el);
-    if(!ctx||!labels.length)return;
+    if(!ctx)return;
+    if(!labels.length){
+      ctx.fillStyle='#72728a';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
+      ctx.fillText('Sem dados',el.width/2,el.height/2);return;
+    }
     const W=el.width,H=el.height;
 
     /* Calcular máximo real */
@@ -1006,7 +1059,14 @@ const NC={
     const el=document.getElementById(id);
     if(!el)return;
     const ctx=this.size(el);
-    if(!ctx||!values.length)return;
+    if(!ctx)return;
+    if(!values.length||!values.some(v=>v>0)){
+      ctx.fillStyle='rgba(128,128,180,0.15)';
+      ctx.beginPath();ctx.arc(el.width*0.42,el.height/2,el.height*0.35,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#72728a';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
+      ctx.fillText('Sem dados',el.width*0.42,el.height/2+3);
+      return;
+    }
     const W=el.width,H=el.height;
     const maxV=Math.max(...values,1);
     const colors=opts&&opts.colors?opts.colors:this.PAL;
@@ -1054,7 +1114,11 @@ const NC={
     const el=document.getElementById(id);
     if(!el)return;
     const ctx=this.size(el);
-    if(!ctx||!labels.length)return;
+    if(!ctx)return;
+    if(!labels.length){
+      ctx.fillStyle='#72728a';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
+      ctx.fillText('Sem dados',el.width/2,el.height/2);return;
+    }
     const W=el.width,H=el.height;
     const allVals=datasets.flatMap(d=>d.data).filter(v=>!isNaN(v));
     if(!allVals.length)return;
@@ -1169,7 +1233,10 @@ const NC={
 
 
 /* ── AUTH ── */
-const getPass=()=>localStorage.getItem('nmm_pass')||'1234';
+/* Hash simples djb2 — melhor que texto puro */
+const hashStr=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36);}
+const getPass=()=>localStorage.getItem('nmm_passh')||hashStr('1234');
+const setPass=s=>localStorage.setItem('nmm_passh',hashStr(s));
 
 /* ── TEMA DARK/LIGHT ── */
 function getTheme(){return localStorage.getItem('nmm_theme')||'dark';}
@@ -1184,15 +1251,40 @@ function toggleTheme(){
   applyTheme(next);
 }
 function login(){
-  if(document.getElementById('pwd').value!==getPass()){
+  /* Rate limiting simples — bloqueia após 5 tentativas por 30s */
+  const now=Date.now();
+  const attempts=JSON.parse(sessionStorage.getItem('_la')||'[]')
+    .filter(t=>now-t<30000);
+  if(attempts.length>=5){
+    document.getElementById('lerr').textContent='Muitas tentativas. Aguarde 30s.';
+    document.getElementById('lerr').style.display='block';
+    return;
+  }
+  if(hashStr(document.getElementById('pwd').value)!==getPass()){
+    attempts.push(now);
+    sessionStorage.setItem('_la',JSON.stringify(attempts));
     document.getElementById('lerr').style.display='block';
     document.getElementById('pwd').value='';return;
   }
   document.getElementById('login').style.display='none';
   const a=document.getElementById('app');a.style.display='flex';a.style.flexDirection='column';
   applyTheme(getTheme());
+  resetSessionTimer();
   init();
 }
+/* Timeout de sessão */
+let _sessionTimer=null;
+function resetSessionTimer(){
+  clearTimeout(_sessionTimer);
+  _sessionTimer=setTimeout(()=>{
+    toast('Sessão expirada por inatividade');
+    setTimeout(logout,1500);
+  },30*60*1000); /* 30 minutos */
+}
+['click','keydown','touchstart'].forEach(ev=>
+  document.addEventListener(ev,resetSessionTimer,{passive:true})
+);
+
 function logout(){
   document.getElementById('login').style.display='flex';
   document.getElementById('app').style.display='none';
@@ -1201,8 +1293,9 @@ function logout(){
 }
 
 /* ── DATA ── */
-const load=()=>{try{return JSON.parse(localStorage.getItem('nmm_data')||'{}')}catch{return{}}};
-const save=d=>localStorage.setItem('nmm_data',JSON.stringify(d));
+let _cache=null;
+const load=()=>{if(_cache)return _cache;try{_cache=JSON.parse(localStorage.getItem('nmm_data')||'{}')}catch{_cache={};} return _cache;};
+const save=d=>{_cache=d;localStorage.setItem('nmm_data',JSON.stringify(d));};
 function blank(){return{pf:{inc:[],bills:[],inv:[]},pj:{inc:[],bills:[],inv:[]},xfer:[],cards:[]};}
 function getMD(k){
   const d=load();if(!d[k])d[k]=blank();
@@ -1213,6 +1306,10 @@ function getMD(k){
   return m;
 }
 function saveMD(k,m){const d=load();d[k]=m;save(d);}
+
+/* Dados globais (não por mês) — metas, configs */
+function loadGlobal(){const d=load();return d.__global||{metas:[]};}
+function saveGlobal(g){const d=load();d.__global=g;save(d);}
 const allKeys=()=>Object.keys(load()).sort((a,b)=>b.localeCompare(a));
 
 /* ── STATE ── */
@@ -1223,6 +1320,21 @@ const dC=()=>{Object.values(CHS).forEach(c=>{try{c.destroy()}catch{}});CHS={};};
 /* ── INIT ── */
 function init(){
   applyTheme(getTheme());
+  /* Schema versioning */
+  const d=load();
+  if(!d.__version||d.__version<2){
+    /* Migrar metas dos meses para global se existirem */
+    const g=loadGlobal();
+    Object.keys(d).filter(k=>k.match(/^\d{4}-\d{2}$/)).forEach(k=>{
+      if(d[k].metas&&d[k].metas.length){
+        g.metas=[...(g.metas||[]),...d[k].metas];
+        delete d[k].metas;
+      }
+    });
+    d.__version=2;
+    d.__global=g;
+    save(d);
+  }
   if(!load()['2026-06'])saveMD('2026-06',blank());
   curM='2026-06';bSel();
   document.getElementById('msel').value=curM;
@@ -1518,7 +1630,7 @@ function addInc(){
   const d=document.getElementById('inc-d').value.trim();
   if(!n||isNaN(v)||v<=0){toast('Preencha nome e valor','var(--red)');return;}
   const m=getMD(curM);m[src].inc.push({id:uid(),n,v,date:d,ok:false});
-  saveMD(curM,m);toast('Entrada adicionada');render();
+  saveMD(curM,m);clearForm('inc-n','inc-v','inc-d');toast('Entrada adicionada');render();
 }
 function tgInc(id,src){const m=getMD(curM);const i=m[src].inc.find(x=>x.id===id);if(i){i.ok=!i.ok;saveMD(curM,m);render();}}
 
@@ -1585,7 +1697,7 @@ function addBill(){
   const rec=!!(document.getElementById('b-rec')&&document.getElementById('b-rec').checked);
   if(!n||isNaN(v)||v<=0){toast('Preencha nome e valor','var(--red)');return;}
   const m=getMD(curM);m[src].bills.push({id:uid(),n,v,c,date:d,rec,ok:false});
-  saveMD(curM,m);toast('Conta adicionada'+(rec?' · recorrente':''));render();
+  saveMD(curM,m);clearForm('b-n','b-v','b-d','b-rec');toast('Conta adicionada'+(rec?' · recorrente':''));render();
 }
 function tgBill(id,src){const m=getMD(curM);const b=m[src].bills.find(b=>b.id===id);if(b){b.ok=!b.ok;saveMD(curM,m);render();}}
 
@@ -1671,7 +1783,7 @@ function addCard(){
   const rec=!!(document.getElementById('c-rec')&&document.getElementById('c-rec').checked);
   if(!n||isNaN(v)||v<=0){toast('Preencha nome e valor','var(--red)');return;}
   const m=getMD(curM);m.cards.push({id:uid(),card,n,v,parcelas,parcAtual,vence,rec,ok:false});
-  saveMD(curM,m);toast('Fatura adicionada');render();
+  saveMD(curM,m);clearForm('c-n','c-v','c-p','c-pi','c-vence');toast('Fatura adicionada');render();
 }
 function tgCard(id){const m=getMD(curM);const c=m.cards.find(c=>c.id===id);if(c){c.ok=!c.ok;saveMD(curM,m);render();}}
 
@@ -1844,7 +1956,7 @@ function addInv(src){
   const rec=!!(document.getElementById('i'+src+'-rec')&&document.getElementById('i'+src+'-rec').checked);
   if(!n||isNaN(v)||v<=0){toast('Preencha nome e valor','var(--red)');return;}
   const m=getMD(curM);m[src].inv.push({id:uid(),n,v,t,rec,ok:false});
-  saveMD(curM,m);toast('Aporte adicionado');render();
+  saveMD(curM,m);clearForm('ipf-n','ipf-v','ipj-n','ipj-v');toast('Aporte adicionado');render();
 }
 function tgInv(id,src){const m=getMD(curM);const i=m[src].inv.find(i=>i.id===id);if(i){i.ok=!i.ok;saveMD(curM,m);render();}}
 
@@ -1855,8 +1967,7 @@ function tgInv(id,src){const m=getMD(curM);const i=m[src].inv.find(i=>i.id===id)
    METAS FINANCEIRAS
 ══════════════════════════════════════ */
 function pgMetas(){
-  const m=getMD(curM);
-  const metas=m.metas||[];
+  const metas=loadGlobal().metas||[];
   const totalMeta=metas.reduce((s,mt)=>s+mt.alvo,0);
   const totalPoupado=metas.reduce((s,mt)=>s+(mt.poupado||0),0);
   const concluidas=metas.filter(mt=>(mt.poupado||0)>=mt.alvo).length;
@@ -1891,7 +2002,7 @@ function pgMetas(){
     return '<div class="meta-card'+(concluida?' meta-done':'')+'">'+
       '<div class="meta-header">'+
         '<div>'+
-          '<div class="meta-title">'+mt.nome+'</div>'+
+          '<div class="meta-title">'+san(mt.nome)+'</div>'+
           '<div class="meta-sub">'+cat.l+prazoStr+'</div>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:8px">'+
@@ -1949,46 +2060,46 @@ function addMeta(){
   const cat=document.getElementById('mt-cat').value;
   const prazo=document.getElementById('mt-prazo').value;
   if(!nome||isNaN(alvo)||alvo<=0){toast('Preencha nome e valor alvo','var(--red)');return;}
-  const m=getMD(curM);
-  if(!m.metas)m.metas=[];
-  m.metas.push({id:uid(),nome,alvo,cat,prazo,poupado:0,criada:curM});
-  saveMD(curM,m);toast('Meta criada');render();
+  const g=loadGlobal();
+  if(!g.metas)g.metas=[];
+  g.metas.push({id:uid(),nome,alvo,cat,prazo,poupado:0,criada:curM});
+  saveGlobal(g);clearForm('mt-nome','mt-alvo','mt-prazo');toast('Meta criada');render();
 }
 
 function aportarMeta(id){
   const inp=document.getElementById('ap_'+id);
   const v=parseFloat(inp?inp.value:'');
   if(isNaN(v)||v<=0){toast('Informe o valor','var(--red)');return;}
-  const m=getMD(curM);
-  const mt=(m.metas||[]).find(x=>x.id===id);
-  if(mt){mt.poupado=(mt.poupado||0)+v;saveMD(curM,m);toast('Valor adicionado');render();}
+  const g=loadGlobal();
+  const mt=(g.metas||[]).find(x=>x.id===id);
+  if(mt){mt.poupado=(mt.poupado||0)+v;saveGlobal(g);toast('Valor adicionado');render();}
 }
 
 function editarPoupado(id){
-  const m=getMD(curM);
-  const mt=(m.metas||[]).find(x=>x.id===id);
+  const g=loadGlobal();
+  const mt=(g.metas||[]).find(x=>x.id===id);
   if(!mt)return;
   const novo=parseFloat(prompt('Valor total poupado nesta meta:',mt.poupado||0));
   if(isNaN(novo)||novo<0)return;
   mt.poupado=novo;
-  saveMD(curM,m);toast('Meta atualizada');render();
+  saveGlobal(g);toast('Meta atualizada');render();
 }
 
 function editarAlvo(id){
-  const m=getMD(curM);
-  const mt=(m.metas||[]).find(x=>x.id===id);
+  const g=loadGlobal();
+  const mt=(g.metas||[]).find(x=>x.id===id);
   if(!mt)return;
   const novo=parseFloat(prompt('Novo valor alvo:',mt.alvo));
   if(isNaN(novo)||novo<=0)return;
   mt.alvo=novo;
-  saveMD(curM,m);toast('Meta atualizada');render();
+  saveGlobal(g);toast('Meta atualizada');render();
 }
 
 function delMeta(id){
   if(!confirm('Remover esta meta?'))return;
-  const m=getMD(curM);
-  m.metas=(m.metas||[]).filter(x=>x.id!==id);
-  saveMD(curM,m);toast('Meta removida','var(--sub)');render();
+  const g=loadGlobal();
+  g.metas=(g.metas||[]).filter(x=>x.id!==id);
+  saveGlobal(g);toast('Meta removida');render();
 }
 
 
@@ -2082,7 +2193,7 @@ function pgCalendario(){
     return '<div class="crow" style="opacity:'+(ev.pago?0.45:1)+'">'
       +'<div style="width:3px;height:28px;border-radius:2px;background:'+st.cor+';flex-shrink:0"></div>'
       +'<div style="width:22px;text-align:center;font-size:11px;font-weight:700;color:var(--sub);flex-shrink:0">'+ev.dia+'</div>'
-      +'<span class="rn">'+ev.nome+'</span>'
+      +'<span class="rn">'+san(ev.nome)+'</span>'
       +'<span class="rb" style="background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span>'
       +(ev.pago?'<span style="font-size:10px;color:var(--green)">✓</span>':'')
       +'<span class="rv">'+fmt(ev.valor)+'</span>'
@@ -2112,7 +2223,7 @@ function pgCalendario(){
         return '<div class="crow">'
           +'<div style="width:3px;height:28px;border-radius:2px;background:'+(urgente?'var(--red)':st.cor||'var(--sub)')+';flex-shrink:0"></div>'
           +'<div style="width:22px;text-align:center;font-size:11px;font-weight:700;color:'+(urgente?'var(--red)':'var(--sub)')+';flex-shrink:0">'+ev.dia+'</div>'
-          +'<span class="rn">'+ev.nome+'</span>'
+          +'<span class="rn">'+san(ev.nome)+'</span>'
           +(urgente&&mesAtual?'<span class="rb" style="background:var(--red-dim);color:var(--red)">Urgente</span>':'')
           +'<span class="rv">'+fmt(ev.valor)+'</span>'
           +'</div>';
@@ -2160,7 +2271,7 @@ function addXfer(){
   const d=document.getElementById('xf-d').value.trim();
   if(!n||isNaN(v)||v<=0){toast('Preencha nome e valor','var(--red)');return;}
   const m=getMD(curM);m.xfer.push({id:uid(),n,v,date:d,ok:false});
-  saveMD(curM,m);toast('Transferência adicionada');render();
+  saveMD(curM,m);clearForm('xf-n','xf-v','xf-d');toast('Transferência adicionada');render();
 }
 function tgXfer(id){const m=getMD(curM);const x=m.xfer.find(x=>x.id===id);if(x){x.ok=!x.ok;saveMD(curM,m);render();}}
 
@@ -2744,7 +2855,7 @@ function chPass(){
   if(o!==getPass()){msg.style.color='var(--red)';msg.textContent='Senha incorreta.';return;}
   if(n.length<3){msg.style.color='var(--red)';msg.textContent='Mínimo 3 caracteres.';return;}
   if(n!==c){msg.style.color='var(--red)';msg.textContent='Senhas não coincidem.';return;}
-  localStorage.setItem('nmm_pass',n);msg.style.color='var(--green)';msg.textContent='Senha alterada.';
+  setPass(n);msg.style.color='var(--green)';msg.textContent='Senha alterada.';
 }
 function expPDF(){
   /* Atualizar label do mês no header de impressão */
